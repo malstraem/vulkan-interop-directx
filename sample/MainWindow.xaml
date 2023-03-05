@@ -1,14 +1,15 @@
 <Window
-    x:Class="SwapchainApp.WinUI3.MainWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+  x:Class="SwapchainApp.WinUI3.MainWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  
+  mc:Ignorable="d">
 
   <Grid>
-    <SwapChainPanel Name="swapchainPanel"/>
+    <SwapChainPanel Name="swapchainPanel" SizeChanged="OnSwapchainPanelSizeChanged"/>
 
-    <Button x:Name="myButton" Click="myButton_Click">Click Me</Button>
+    <TextBlock Text="Wow its vulkan rendered triangle" VerticalAlignment="Center" HorizontalAlignment="Center"/>
   </Grid>
 </Window>
