@@ -9,25 +9,15 @@ using Silk.NET.Core.Native;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
+using VulkanInterop;
+
 namespace SwapchainApp.WinUI3
 {
     public sealed partial class MainWindow : Window
     {
-        [ComImport, Guid("63aad0b8-7c24-40ff-85a8-640d944cc325"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        public partial interface ISwapChainPanelNative
-        {
-            [PreserveSig]
-            HResult SetSwapChain(ComPtr<IDXGISwapChain1> swapchain);
-        }
+        private VulkanInteropApp vulkanApp = new();
 
-        public MainWindow()
-        {
-            InitializeComponent();
-
-            InitializeDirectX();
-
-            CompositionTarget.Rendering += (s, e) => Draw();
-        }
+        private nint sharedTextureHandle;
 
         private readonly D3D11 d3d11 = D3D11.GetApi();
 
@@ -66,6 +56,8 @@ namespace SwapchainApp.WinUI3
             guid = IDXGIFactory2.Guid;
             adapter.Get().GetParent(ref guid, (void**)factory2.GetAddressOf());
             #endregion
+
+            CreateSharedResources((uint)Bounds.Width, (uint)Bounds.Height);
         }
 
         private unsafe void CreateSharedResources(uint width, uint height)
@@ -111,7 +103,9 @@ namespace SwapchainApp.WinUI3
             void* sharedHandle;
             resource.Get().GetSharedHandle(&sharedHandle);
 
-            Console.WriteLine("Shared texture handle: 0x{0:X16}", (nint)sharedHandle);
+            sharedTextureHandle = (nint)sharedHandle;
+
+            Console.WriteLine("Shared texture handle: 0x{0:X16}", sharedTextureHandle);
 
             guid = ID3D11Texture2D.Guid;
 
@@ -142,6 +136,33 @@ namespace SwapchainApp.WinUI3
             Console.WriteLine($"SwapchainPanel resized: width - {size.Width}, height - {size.Height}");
 
             CreateSharedResources((uint)size.Width, (uint)size.Height);
+
+            vulkanApp.Resize(sharedTextureHandle, (uint)size.Width, (uint)size.Height);
+
+            var nativePanel = swapchainPanel.As<ISwapChainPanelNative>();
+            _ = nativePanel.SetSwapChain(swapchain1);
+        }
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            InitializeDirectX();
+
+            vulkanApp.Initialize(sharedTextureHandle, (uint)Bounds.Width, (uint)Bounds.Height);
+
+            CompositionTarget.Rendering += (s, e) =>
+            {
+                vulkanApp.Draw();
+                Draw();
+            };
+        }
+
+        [ComImport, Guid("63aad0b8-7c24-40ff-85a8-640d944cc325"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public partial interface ISwapChainPanelNative
+        {
+            [PreserveSig]
+            HResult SetSwapChain(ComPtr<IDXGISwapChain1> swapchain);
         }
     }
 }

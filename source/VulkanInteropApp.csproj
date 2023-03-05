@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Platforms>x64</Platforms>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
+    <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.16.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.16.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <VertexShaders Include="shaders\*.vert" />
+    <FragmentShaders Include="shaders\*.frag" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="shaders\*.spv" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ShaderOutputPath>shaders</ShaderOutputPath>
+  </PropertyGroup>
+
+  <Target Name="BuildVulkanShaders" AfterTargets="BeforeBuild">
+    <Message Text="VulkanBinPath: $(VulkanBinPath)" Importance="high" />
+    <Message Text="ShaderOutputPath: $(ShaderOutputPath)" Importance="high" />
+    <Message Text="VertexShader: @(VertexShaders)" Importance="high" />
+    <Message Text="FragmentShader: @(FragmentShaders)" Importance="high" />
+    <MakeDir Directories="$(ShaderOutputPath)" Condition="!Exists('$(ShaderOutputPath)')" />
+    <Exec Command="glslc shaders\%(VertexShaders.Filename)%(VertexShaders.Extension) -o $(ShaderOutputPath)\%(VertexShaders.Filename)%(VertexShaders.Extension).spv" />
+    <Exec Command="glslc shaders\%(FragmentShaders.Filename)%(FragmentShaders.Extension) -o $(ShaderOutputPath)\%(FragmentShaders.Filename)%(FragmentShaders.Extension).spv" />
+  </Target>
+</Project>
