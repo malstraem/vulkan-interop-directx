@@ -10,15 +10,15 @@ using Silk.NET.Core.Native;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
-using VulkanInterop;
+using Interop.Vulkan;
 
-namespace SwapchainApp.WinUI3
+namespace Interop.WinUI3
 {
     public sealed partial class MainWindow : Window
     {
         private readonly Stopwatch stopwatch = new();
 
-        private readonly VulkanInteropApp vulkanApp = new();
+        private readonly VulkanInterop vulkanInterop = new();
 
         private readonly D3D11 d3d11 = D3D11.GetApi();
 
@@ -132,19 +132,19 @@ namespace SwapchainApp.WinUI3
 
             Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-            swapchain1.Release();
+            swapchain1.Get().Release();
 
-            colorTexture.Release();
-            renderTarget.Release();
+            colorTexture.Get().Release();
+            renderTarget.Get().Release();
 
-            colorResource.Release();
-            renderTargetResource.Release();
+            colorResource.Get().Release();
+            renderTargetResource.Get().Release();
 
             CreateSharedResources(width, height);
 
             SetSwapchain();
 
-            vulkanApp.Resize(sharedTextureHandle, width, height);
+            vulkanInterop.Resize(sharedTextureHandle, width, height);
         }
 
         private void SetSwapchain()
@@ -171,13 +171,13 @@ namespace SwapchainApp.WinUI3
 
             SetSwapchain();
 
-            vulkanApp.Initialize(sharedTextureHandle, width, height);
+            vulkanInterop.Initialize(sharedTextureHandle, width, height);
 
             swapchainPanel.SizeChanged += OnSwapchainPanelSizeChanged;
 
             CompositionTarget.Rendering += (s, e) =>
             {
-                vulkanApp.Draw(stopwatch.ElapsedMilliseconds);
+                vulkanInterop.Draw(stopwatch.ElapsedMilliseconds);
                 Draw();
             };
 

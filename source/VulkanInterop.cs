@@ -9,7 +9,7 @@ using Silk.NET.Vulkan;
 
 using Buffer = Silk.NET.Vulkan.Buffer;
 
-namespace VulkanInterop
+namespace Interop.Vulkan
 {
     public static class Log
     {
@@ -20,7 +20,7 @@ namespace VulkanInterop
         }
     }
 
-    public unsafe class VulkanInteropApp
+    public unsafe class VulkanInterop
     {
         private readonly struct Vertex
         {
@@ -115,23 +115,23 @@ namespace VulkanInterop
         private readonly uint[] indices =
         {
             #region First to second indices blocks
-            0, 1, 2,
-            0, 3, 1,
+            0u, 1u, 2u,
+            0u, 3u, 1u,
 
-            4, 5, 6,
-            4, 7, 5,
+            4u, 5u, 6u,
+            4u, 7u, 5u,
 
-            8, 9, 10,
-            8, 11, 9,
+            8u, 9u, 10u,
+            8u, 11u, 9u,
 
-            12, 13, 14,
-            12, 15, 13,
+            12u, 13u, 14u,
+            12u, 15u, 13u,
 
-            16, 17, 18,
-            16, 19, 17,
+            16u, 17u, 18u,
+            16u, 19u, 17u,
 
-            20, 21, 22,
-            20, 23, 21
+            20u, 21u, 22u,
+            20u, 23u, 21u
             #endregion
         };
 
@@ -168,6 +168,7 @@ namespace VulkanInterop
 
         private DeviceMemory vertexMemory, indexMemory, uniformMemory;
 
+        private ShaderModule vertexShaderModule, fragmentShaderModule;
         private static byte[] ReadBytes(string filename)
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -178,12 +179,6 @@ namespace VulkanInterop
 
             return reader.ReadBytes((int)stream.Length);
         }
-
-        /*private static void CheckResult(Result result)
-        {
-            if (result is not Result.Success)
-                throw new Exception($"Calling vulkan function failed - {result}");
-        }*/
 
         private uint GetQueueIndex()
         {
@@ -207,11 +202,11 @@ namespace VulkanInterop
 
         private uint GetMemoryTypeIndex(uint typeBits, MemoryPropertyFlags memoryPropertyFlags)
         {
-            vk.GetPhysicalDeviceMemoryProperties(physicalDevice, out var memProperties);
+            vk.GetPhysicalDeviceMemoryProperties(physicalDevice, out var memoryProperties);
 
-            for (int i = 0; i < memProperties.MemoryTypeCount; i++)
+            for (int i = 0; i < memoryProperties.MemoryTypeCount; i++)
             {
-                if ((typeBits & (1 << i)) != 0 && (memProperties.MemoryTypes[i].PropertyFlags & memoryPropertyFlags) == memoryPropertyFlags)
+                if ((typeBits & (1 << i)) != 0 && (memoryProperties.MemoryTypes[i].PropertyFlags & memoryPropertyFlags) == memoryPropertyFlags)
                     return (uint)i;
             }
 
@@ -241,10 +236,10 @@ namespace VulkanInterop
 
             _ = vk.AllocateMemory(device, memoryAllocateInfo, null, out deviceMemory);
 
-            _ = vk.BindBufferMemory(device, buffer, deviceMemory, 0);
+            _ = vk.BindBufferMemory(device, buffer, deviceMemory, 0ul);
 
             void* data;
-            _ = vk.MapMemory(device, deviceMemory, 0, size, 0, &data);
+            _ = vk.MapMemory(device, deviceMemory, 0ul, size, 0u, &data);
             vertices.AsSpan().CopyTo(new Span<Vertex>(data, vertices.Length));
             vk.UnmapMemory(device, deviceMemory);
         }
@@ -264,18 +259,17 @@ namespace VulkanInterop
                 PNext = &externalMemoryImageInfo,
                 ImageType = ImageType.Type2D,
                 Format = Format.B8G8R8A8Unorm,
-                MipLevels = 1,
-                ArrayLayers = 1,
+                MipLevels = 1u,
+                ArrayLayers = 1u,
                 Samples = SampleCountFlags.Count1Bit,
                 Tiling = ImageTiling.Optimal,
                 Usage = ImageUsageFlags.ColorAttachmentBit,
-                Flags = ImageCreateFlags.None,
                 SharingMode = SharingMode.Exclusive
             };
 
             imageCreateInfo.Extent.Width = width;
             imageCreateInfo.Extent.Height = height;
-            imageCreateInfo.Extent.Depth = 1;
+            imageCreateInfo.Extent.Depth = 1u;
 
             _ = vk.CreateImage(device, &imageCreateInfo, null, out image);
 
@@ -286,7 +280,6 @@ namespace VulkanInterop
             var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
             {
                 SType = StructureType.ImportMemoryWin32HandleInfoKhr,
-                PNext = null,
                 HandleType = ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
                 Handle = directTextureHandle
             };
@@ -301,7 +294,7 @@ namespace VulkanInterop
 
             _ = vk.AllocateMemory(device, &allocInfo, null, out var deviceMemory);
 
-            _ = vk.BindImageMemory(device, image, deviceMemory, 0);
+            _ = vk.BindImageMemory(device, image, deviceMemory, 0ul);
 
             var imageViewCreateInfo = new ImageViewCreateInfo
             {
@@ -318,12 +311,6 @@ namespace VulkanInterop
         private void CreatePipeline()
         {
             #region Create pipeline
-            byte[] vertShaderCode = ReadBytes("shaders.shader.vert.spv");
-            byte[] fragShaderCode = ReadBytes("shaders.shader.frag.spv");
-
-            var vertexShaderModule = CreateShaderModule(vertShaderCode);
-            var fragmentShaderModule = CreateShaderModule(fragShaderCode);
-
             var vertexShaderStageInfo = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
@@ -355,7 +342,7 @@ namespace VulkanInterop
                 var vertexInputStateCreateInfo = new PipelineVertexInputStateCreateInfo()
                 {
                     SType = StructureType.PipelineVertexInputStateCreateInfo,
-                    VertexBindingDescriptionCount = 1,
+                    VertexBindingDescriptionCount = 1u,
                     VertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
                     PVertexBindingDescriptions = &bindingDescription,
                     PVertexAttributeDescriptions = attributeDescriptionsPtr
@@ -370,12 +357,12 @@ namespace VulkanInterop
 
                 var viewport = new Viewport()
                 {
-                    X = 0,
-                    Y = 0,
+                    X = 0f,
+                    Y = 0f,
                     Width = width,
                     Height = height,
-                    MinDepth = 0,
-                    MaxDepth = 1
+                    MinDepth = 0f,
+                    MaxDepth = 1f
                 };
 
                 var scissorRect = new Rect2D()
@@ -387,9 +374,9 @@ namespace VulkanInterop
                 var viewportStateCreateInfo = new PipelineViewportStateCreateInfo()
                 {
                     SType = StructureType.PipelineViewportStateCreateInfo,
-                    ViewportCount = 1,
+                    ViewportCount = 1u,
                     PViewports = &viewport,
-                    ScissorCount = 1,
+                    ScissorCount = 1u,
                     PScissors = &scissorRect
                 };
 
@@ -399,8 +386,8 @@ namespace VulkanInterop
                     DepthClampEnable = false,
                     RasterizerDiscardEnable = false,
                     PolygonMode = PolygonMode.Fill,
-                    LineWidth = 1,
-                    CullMode = CullModeFlags.BackBit,
+                    LineWidth = 1f,
+                    CullMode = CullModeFlags.None,
                     FrontFace = FrontFace.Clockwise,
                     DepthBiasEnable = false
                 };
@@ -421,23 +408,16 @@ namespace VulkanInterop
                 var colorBlendStateCreateInfo = new PipelineColorBlendStateCreateInfo()
                 {
                     SType = StructureType.PipelineColorBlendStateCreateInfo,
-                    LogicOpEnable = false,
                     LogicOp = LogicOp.Copy,
-                    AttachmentCount = 1,
+                    AttachmentCount = 1u,
                     PAttachments = &colorBlendAttachmentState
                 };
-
-                colorBlendStateCreateInfo.BlendConstants[0] = 0;
-                colorBlendStateCreateInfo.BlendConstants[1] = 0;
-                colorBlendStateCreateInfo.BlendConstants[2] = 0;
-                colorBlendStateCreateInfo.BlendConstants[3] = 0;
 
                 var layoutCreateInfo = new PipelineLayoutCreateInfo()
                 {
                     SType = StructureType.PipelineLayoutCreateInfo,
-                    SetLayoutCount = 1,
-                    PSetLayouts = descriptorSetLayoutPtr,
-                    PushConstantRangeCount = 0
+                    SetLayoutCount = 1u,
+                    PSetLayouts = descriptorSetLayoutPtr
                 };
 
                 _ = vk.CreatePipelineLayout(device, layoutCreateInfo, null, out pipelineLayout);
@@ -445,7 +425,7 @@ namespace VulkanInterop
                 var pipelineCreateInfo = new GraphicsPipelineCreateInfo()
                 {
                     SType = StructureType.GraphicsPipelineCreateInfo,
-                    StageCount = 2,
+                    StageCount = 2u,
                     PStages = shaderStages,
                     PVertexInputState = &vertexInputStateCreateInfo,
                     PInputAssemblyState = &inputAssemblyStateCreateInfo,
@@ -454,13 +434,14 @@ namespace VulkanInterop
                     PMultisampleState = &multisampleStateCreateInfo,
                     PColorBlendState = &colorBlendStateCreateInfo,
                     Layout = pipelineLayout,
-                    RenderPass = renderPass,
-                    Subpass = 0,
-                    BasePipelineHandle = default
+                    RenderPass = renderPass
                 };
 
-                _ = vk.CreateGraphicsPipelines(device, default, 1, pipelineCreateInfo, null, out pipeline);
+                _ = vk.CreateGraphicsPipelines(device, default, 1u, pipelineCreateInfo, null, out pipeline);
             }
+
+            SilkMarshal.Free((nint)vertexShaderStageInfo.PName);
+            SilkMarshal.Free((nint)fragmentShaderStageInfo.PName);
             #endregion
         }
 
@@ -472,11 +453,11 @@ namespace VulkanInterop
                 {
                     SType = StructureType.FramebufferCreateInfo,
                     RenderPass = renderPass,
-                    AttachmentCount = 1,
+                    AttachmentCount = 1u,
                     PAttachments = imageViewPtr,
                     Width = width,
                     Height = height,
-                    Layers = 1,
+                    Layers = 1u
                 };
 
                 _ = vk.CreateFramebuffer(device, framebufferCreateInfo, null, out framebuffer);
@@ -490,7 +471,7 @@ namespace VulkanInterop
                 SType = StructureType.CommandBufferAllocateInfo,
                 CommandPool = commandPool,
                 Level = CommandBufferLevel.Primary,
-                CommandBufferCount = 1u,
+                CommandBufferCount = 1u
             };
 
             _ = vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out commandBuffer);
@@ -531,23 +512,22 @@ namespace VulkanInterop
 
             vk.CmdEndRenderPass(commandBuffer);
 
-            if (vk.EndCommandBuffer(commandBuffer) != Result.Success)
-                throw new Exception("failed to record command buffer!");
+            _ = vk.EndCommandBuffer(commandBuffer);
         }
 
         private void UpdateModelViewProjection(float time)
         {
             var mvp = new ModelViewProjection()
             {
-                Model = Matrix4x4.Identity * Matrix4x4.CreateFromAxisAngle(new Vector3(0f, 0f, 1f), time * 90.0f * MathF.PI / 180),
+                Model = Matrix4x4.Identity * Matrix4x4.CreateFromAxisAngle(new Vector3(0f, 0f, 1f), time * 90.0f * MathF.PI / 180f),
                 View = Matrix4x4.CreateLookAt(new Vector3(2f, 2f, 2f), new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 1f)),
-                Projection = Matrix4x4.CreatePerspectiveFieldOfView(45.0f * MathF.PI / 180, width / height, 0.1f, 10.0f),
+                Projection = Matrix4x4.CreatePerspectiveFieldOfView(45.0f * MathF.PI / 180f, width / height, 0.1f, 10.0f),
             };
 
             mvp.Projection.M22 *= -1;
 
             void* data;
-            _ = vk.MapMemory(device, uniformMemory, 0, (ulong)sizeof(ModelViewProjection), 0, &data);
+            _ = vk.MapMemory(device, uniformMemory, 0ul, (ulong)sizeof(ModelViewProjection), 0, &data);
             new Span<ModelViewProjection>(data, 1)[0] = mvp;
             vk.UnmapMemory(device, uniformMemory);
         }
@@ -557,15 +537,15 @@ namespace VulkanInterop
             var submitInfo = new SubmitInfo
             {
                 SType = StructureType.SubmitInfo,
-                CommandBufferCount = 1,
-                PCommandBuffers = &cmdBuffer,
+                CommandBufferCount = 1u,
+                PCommandBuffers = &cmdBuffer
             };
 
             var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo };
 
             _ = vk.CreateFence(device, fenceInfo, null, out var fence);
-            _ = vk.QueueSubmit(queue, 1, submitInfo, fence);
-            _ = vk.WaitForFences(device, 1, fence, true, ulong.MaxValue);
+            _ = vk.QueueSubmit(queue, 1u, submitInfo, fence);
+            _ = vk.WaitForFences(device, 1u, fence, true, ulong.MaxValue);
 
             vk.DestroyFence(device, fence, null);
         }
@@ -593,7 +573,7 @@ namespace VulkanInterop
                 {
                     SType = StructureType.ShaderModuleCreateInfo,
                     CodeSize = (nuint)code.Length,
-                    PCode = (uint*)codePtr,
+                    PCode = (uint*)codePtr
                 };
 
                 _ = vk.CreateShaderModule(device, &createInfo, null, out var shaderModule);
@@ -617,7 +597,7 @@ namespace VulkanInterop
             var createInfo = new InstanceCreateInfo
             {
                 SType = StructureType.InstanceCreateInfo,
-                PApplicationInfo = &appInfo,
+                PApplicationInfo = &appInfo
             };
 
             _ = vk.CreateInstance(createInfo, null, out instance);
@@ -629,7 +609,6 @@ namespace VulkanInterop
             uint deviceCount = 0u;
 
             _ = vk.EnumeratePhysicalDevices(instance, ref deviceCount, null);
-
             _ = vk.EnumeratePhysicalDevices(instance, ref deviceCount, ref physicalDevice);
 
             vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
@@ -641,13 +620,13 @@ namespace VulkanInterop
             using var mem = GlobalMemory.Allocate(sizeof(DeviceQueueCreateInfo));
             var deviceQueueCreateInfos = (DeviceQueueCreateInfo*)Unsafe.AsPointer(ref mem.GetPinnableReference());
 
-            float queuePriority = 1.0f;
+            float queuePriority = 1f;
 
             deviceQueueCreateInfos[0] = new()
             {
                 SType = StructureType.DeviceQueueCreateInfo,
                 QueueFamilyIndex = queueIndex,
-                QueueCount = 1,
+                QueueCount = 1u,
                 PQueuePriorities = &queuePriority
             };
 
@@ -660,7 +639,7 @@ namespace VulkanInterop
 
             _ = vk.CreateDevice(physicalDevice, deviceCreateInfo, null, out device);
 
-            vk.GetDeviceQueue(device, queueIndex, 0, out queue);
+            vk.GetDeviceQueue(device, queueIndex, 0u, out queue);
             #endregion
 
             #region Create command pool
@@ -673,6 +652,14 @@ namespace VulkanInterop
             _ = vk.CreateCommandPool(device, commandPoolCreateInfo, null, out commandPool);
             #endregion
 
+            #region Create shader modules
+            byte[] vertShaderCode = ReadBytes("shaders.shader.vert.spv");
+            byte[] fragShaderCode = ReadBytes("shaders.shader.frag.spv");
+
+            vertexShaderModule = CreateShaderModule(vertShaderCode);
+            fragmentShaderModule = CreateShaderModule(fragShaderCode);
+            #endregion
+
             #region Create render pass
             var attachmentDescription = new AttachmentDescription
             {
@@ -682,28 +669,26 @@ namespace VulkanInterop
                 StoreOp = AttachmentStoreOp.Store,
                 StencilLoadOp = AttachmentLoadOp.DontCare,
                 InitialLayout = ImageLayout.Undefined,
-                FinalLayout = ImageLayout.PresentSrcKhr,
+                FinalLayout = ImageLayout.PresentSrcKhr
             };
 
             var attachmentReference = new AttachmentReference
             {
-                Attachment = 0,
-                Layout = ImageLayout.ColorAttachmentOptimal,
+                Attachment = 0u,
+                Layout = ImageLayout.ColorAttachmentOptimal
             };
 
             var subpassDescription = new SubpassDescription
             {
                 PipelineBindPoint = PipelineBindPoint.Graphics,
-                ColorAttachmentCount = 1,
-                PColorAttachments = &attachmentReference,
+                ColorAttachmentCount = 1u,
+                PColorAttachments = &attachmentReference
             };
 
             var subpassDependency = new SubpassDependency
             {
                 SrcSubpass = Vk.SubpassExternal,
-                DstSubpass = 0,
                 SrcStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
-                SrcAccessMask = 0,
                 DstStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
                 DstAccessMask = AccessFlags.ColorAttachmentWriteBit
             };
@@ -711,11 +696,11 @@ namespace VulkanInterop
             var renderPassCreateInfo = new RenderPassCreateInfo
             {
                 SType = StructureType.RenderPassCreateInfo,
-                AttachmentCount = 1,
+                AttachmentCount = 1u,
                 PAttachments = &attachmentDescription,
-                SubpassCount = 1,
+                SubpassCount = 1u,
                 PSubpasses = &subpassDescription,
-                DependencyCount = 1,
+                DependencyCount = 1u,
                 PDependencies = &subpassDependency,
             };
 
@@ -732,7 +717,7 @@ namespace VulkanInterop
             var descriptorPoolCreateInfo = new DescriptorPoolCreateInfo()
             {
                 SType = StructureType.DescriptorPoolCreateInfo,
-                PoolSizeCount = 1,
+                PoolSizeCount = 1u,
                 PPoolSizes = &descriptorPoolSize,
                 MaxSets = 1u
             };
@@ -743,17 +728,16 @@ namespace VulkanInterop
             #region Create descriptor set layout
             var descriptorSetLayoutBinding = new DescriptorSetLayoutBinding()
             {
-                Binding = 0,
-                DescriptorCount = 1,
+                Binding = 0u,
+                DescriptorCount = 1u,
                 DescriptorType = DescriptorType.UniformBuffer,
-                PImmutableSamplers = null,
                 StageFlags = ShaderStageFlags.VertexBit
             };
 
             var descriptorSetLayoutCreateInfo = new DescriptorSetLayoutCreateInfo()
             {
                 SType = StructureType.DescriptorSetLayoutCreateInfo,
-                BindingCount = 1,
+                BindingCount = 1u,
                 PBindings = &descriptorSetLayoutBinding
             };
 
@@ -768,7 +752,7 @@ namespace VulkanInterop
                     SType = StructureType.DescriptorSetAllocateInfo,
                     DescriptorPool = descriptorPool,
                     DescriptorSetCount = 1u,
-                    PSetLayouts = setLayoutPtr,
+                    PSetLayouts = setLayoutPtr
                 };
 
                 _ = vk.AllocateDescriptorSets(device, descriptorSetAllocateInfo, out descriptorSet);
@@ -777,7 +761,6 @@ namespace VulkanInterop
             var descriptorBufferInfo = new DescriptorBufferInfo()
             {
                 Buffer = uniformBuffer,
-                Offset = 0,
                 Range = (ulong)sizeof(ModelViewProjection)
             };
 
@@ -785,14 +768,13 @@ namespace VulkanInterop
             {
                 SType = StructureType.WriteDescriptorSet,
                 DstSet = descriptorSet,
-                DstBinding = 0,
-                DstArrayElement = 0,
+                DstBinding = 0u,
                 DescriptorType = DescriptorType.UniformBuffer,
-                DescriptorCount = 1,
-                PBufferInfo = &descriptorBufferInfo,
+                DescriptorCount = 1u,
+                PBufferInfo = &descriptorBufferInfo
             };
 
-            vk.UpdateDescriptorSets(device, 1, writeDescriptorSet, 0, null);
+            vk.UpdateDescriptorSets(device, 1u, writeDescriptorSet, 0u, null);
             #endregion
 
             CreateImageView(directTextureHandle);
@@ -821,7 +803,7 @@ namespace VulkanInterop
 
         public void Draw(float time)
         {
-            //UpdateModelViewProjection(time);
+            UpdateModelViewProjection(time);
             SubmitWork(commandBuffer, queue);
         }
 

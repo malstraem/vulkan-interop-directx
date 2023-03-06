@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SwapchainApp.WinUI3", "sample\SwapchainApp.WinUI3.csproj", "{6D31309D-22B0-4BB9-9DAE-2D4FFF8334B4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interop.WinUI3", "sample\Interop.WinUI3.csproj", "{6D31309D-22B0-4BB9-9DAE-2D4FFF8334B4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VulkanInteropApp", "source\VulkanInteropApp.csproj", "{3757AAFE-C718-45BA-89F1-B180AB20FA0D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interop.Vulkan", "source\Interop.Vulkan.csproj", "{3757AAFE-C718-45BA-89F1-B180AB20FA0D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

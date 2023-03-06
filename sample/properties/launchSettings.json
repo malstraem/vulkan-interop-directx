@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "SwapchainApp.WinUI3": {
+    "Interop.WinUI3": {
       "commandName": "MsixPackage",
       "nativeDebugging": true
     }

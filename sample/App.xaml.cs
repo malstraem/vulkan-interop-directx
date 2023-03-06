@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 
-namespace SwapchainApp.WinUI3
+namespace Interop.WinUI3
 {
     public partial class App : Application
     {
