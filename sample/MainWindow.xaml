@@ -8,8 +8,8 @@
   mc:Ignorable="d">
 
   <Grid>
-    <SwapChainPanel Name="swapchainPanel" SizeChanged="OnSwapchainPanelSizeChanged"/>
+    <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
-    <TextBlock Text="Wow its vulkan rendered triangle" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    <TextBlock Text="" VerticalAlignment="Center" HorizontalAlignment="Center"/>
   </Grid>
 </Window>

@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 
@@ -71,12 +70,73 @@ namespace VulkanInterop
             }
         }
 
+        private struct ModelViewProjection
+        {
+            public Matrix4x4 Model;
+            public Matrix4x4 View;
+            public Matrix4x4 Projection;
+        }
+
         private readonly Vertex[] vertices =
         {
-            new Vertex (new Vector3(1f,  1f, 0f), new Vector3(1f, 0f, 0f)),
-            new Vertex (new Vector3(-1f,  1f, 0f), new Vector3(0f, 1f, 0f)),
-            new Vertex (new Vector3(0f,  -1f, 0f), new Vector3(0f, 0f, 1f)),
+            #region Cube faces
+            new(new(-0.5f,  0.5f, -0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new( 0.5f, -0.5f, -0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new(-0.5f, -0.5f, -0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new( 0.5f,  0.5f, -0.5f), new(0.0f, 1.0f, 0.0f)),
+
+            new(new(0.5f, -0.5f, -0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new(0.5f,  0.5f,  0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new(0.5f, -0.5f,  0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new(0.5f,  0.5f, -0.5f), new(0.0f, 1.0f, 0.0f)),
+
+            new(new(-0.5f,  0.5f,  0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new(-0.5f, -0.5f, -0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new(-0.5f, -0.5f,  0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new(-0.5f,  0.5f, -0.5f), new(0.0f, 1.0f, 0.0f)),
+
+            new(new( 0.5f,  0.5f,  0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new(-0.5f, -0.5f,  0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new( 0.5f, -0.5f,  0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new(-0.5f,  0.5f,  0.5f), new(0.0f, 1.0f, 0.0f)),
+
+            new(new(-0.5f, 0.5f, -0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new( 0.5f, 0.5f,  0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new( 0.5f, 0.5f, -0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new(-0.5f, 0.5f,  0.5f), new(0.0f, 1.0f, 0.0f)),
+
+            new(new( 0.5f, -0.5f,  0.5f), new(1.0f, 0.0f, 0.0f)),
+            new(new(-0.5f, -0.5f, -0.5f), new(1.0f, 0.0f, 1.0f)),
+            new(new( 0.5f, -0.5f, -0.5f), new(0.0f, 0.0f, 1.0f)),
+            new(new(-0.5f, -0.5f,  0.5f), new(0.0f, 1.0f, 0.0f))
+            #endregion
         };
+
+        private readonly uint[] indices =
+        {
+            #region First to second indices blocks
+            0, 1, 2,
+            0, 3, 1,
+
+            4, 5, 6,
+            4, 7, 5,
+
+            8, 9, 10,
+            8, 11, 9,
+
+            12, 13, 14,
+            12, 15, 13,
+
+            16, 17, 18,
+            16, 19, 17,
+
+            20, 21, 22,
+            20, 23, 21
+            #endregion
+        };
+
+        private uint width;
+        private uint height;
 
         private readonly Vk vk = Vk.GetApi();
 
@@ -95,50 +155,57 @@ namespace VulkanInterop
         private Pipeline pipeline;
         private PipelineLayout pipelineLayout;
 
+        private DescriptorPool descriptorPool;
+        private DescriptorSetLayout descriptorSetLayout;
+        private DescriptorSet descriptorSet;
+
         private RenderPass renderPass;
 
         private CommandPool commandPool;
         private CommandBuffer commandBuffer;
 
-        private Buffer vertexBuffer, indexBuffer;
+        private Buffer vertexBuffer, indexBuffer, uniformBuffer;
 
-        private DeviceMemory vertexMemory, indexMemory;
+        private DeviceMemory vertexMemory, indexMemory, uniformMemory;
 
         private static byte[] ReadBytes(string filename)
         {
             var assembly = Assembly.GetExecutingAssembly();
-            string name = assembly.GetName().FullName;
+            string name = assembly.GetName().Name;
 
-            using (var stream = assembly.GetManifestResourceStream(filename))
+            using (var stream = assembly.GetManifestResourceStream($"{name}.{filename}"))
             using (var reader = new BinaryReader(stream))
 
-                return reader.ReadBytes((int)stream.Length);
+            return reader.ReadBytes((int)stream.Length);
         }
 
-        private uint GetQueueIndex(PhysicalDevice device)
+        /*private static void CheckResult(Result result)
+        {
+            if (result is not Result.Success)
+                throw new Exception($"Calling vulkan function failed - {result}");
+        }*/
+
+        private uint GetQueueIndex()
         {
             uint queueFamilityCount = 0u;
-            vk.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, null);
+            vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilityCount, null);
 
             var queueFamilies = new QueueFamilyProperties[queueFamilityCount];
 
             fixed (QueueFamilyProperties* queueFamiliesPtr = queueFamilies)
-            {
-                vk.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, queueFamiliesPtr);
-            }
+                vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilityCount, queueFamiliesPtr);
 
             uint i = 0u;
             foreach (var queueFamily in queueFamilies)
             {
                 if (queueFamily.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
                     break;
-
                 i++;
             }
             return i;
         }
 
-        uint GetMemoryTypeIndex(uint typeBits, MemoryPropertyFlags memoryPropertyFlags)
+        private uint GetMemoryTypeIndex(uint typeBits, MemoryPropertyFlags memoryPropertyFlags)
         {
             vk.GetPhysicalDeviceMemoryProperties(physicalDevice, out var memProperties);
 
@@ -151,7 +218,7 @@ namespace VulkanInterop
             throw new Exception("memory type not found");
         }
 
-        private void CreateBuffer(BufferUsageFlags bufferUsage, MemoryPropertyFlags memoryProperties, ref Buffer buffer, ref DeviceMemory deviceMemory, ulong size)
+        private void CreateBuffer(BufferUsageFlags bufferUsage, MemoryPropertyFlags memoryProperties, out Buffer buffer, out DeviceMemory deviceMemory, ulong size)
         {
             var bufferCreateInfo = new BufferCreateInfo
             {
@@ -161,11 +228,7 @@ namespace VulkanInterop
                 SharingMode = SharingMode.Exclusive
             };
 
-            fixed (Buffer* bufferPtr = &buffer)
-            {
-                if (vk.CreateBuffer(device, bufferCreateInfo, null, bufferPtr) != Result.Success)
-                    throw new Exception("failed to create vertex buffer!");
-            }
+            _ = vk.CreateBuffer(device, bufferCreateInfo, null, out buffer);
 
             vk.GetBufferMemoryRequirements(device, buffer, out var memoryRequirements);
 
@@ -176,103 +239,17 @@ namespace VulkanInterop
                 MemoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.MemoryTypeBits, memoryProperties)
             };
 
-            fixed (DeviceMemory* bufferMemoryPtr = &deviceMemory)
-            {
-                if (vk.AllocateMemory(device, memoryAllocateInfo, null, bufferMemoryPtr) != Result.Success)
-                    throw new Exception("failed to allocate vertex buffer memory!");
-            }
+            _ = vk.AllocateMemory(device, memoryAllocateInfo, null, out deviceMemory);
 
-            vk.BindBufferMemory(device, buffer, deviceMemory, 0);
-        }
-
-        private void SubmitWork(CommandBuffer cmdBuffer, Queue queue)
-        {
-            var submitInfo = new SubmitInfo
-            {
-                SType = StructureType.SubmitInfo,
-                CommandBufferCount = 1,
-                PCommandBuffers = &cmdBuffer,
-            };
-
-            var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo };
-
-            vk.CreateFence(device, fenceInfo, null, out var fence);
-
-            vk.QueueSubmit(queue, 1, submitInfo, fence);
-
-            vk.WaitForFences(device, 1, fence, true, ulong.MaxValue);
-            vk.DestroyFence(device, fence, null);
-        }
-
-        private void CreateBuffers()
-        {
-            #region Create vertex and index buffers
-            int[] indices = { 0, 1, 2 };
-
-            ulong vertexBufferSize = (ulong)(Unsafe.SizeOf<Vertex>() * vertices.Length);
-            ulong indexBufferSize = (ulong)(indices.Length * sizeof(int));
-
-            DeviceMemory stagingMemory = default;
-            Buffer stagingBuffer = default;
-
-            CreateBuffer(BufferUsageFlags.TransferSrcBit, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
-                ref stagingBuffer, ref stagingMemory, vertexBufferSize);
+            _ = vk.BindBufferMemory(device, buffer, deviceMemory, 0);
 
             void* data;
-            vk.MapMemory(device, stagingMemory, 0, vertexBufferSize, 0, &data);
+            _ = vk.MapMemory(device, deviceMemory, 0, size, 0, &data);
             vertices.AsSpan().CopyTo(new Span<Vertex>(data, vertices.Length));
-            vk.UnmapMemory(device, stagingMemory);
-
-            CreateBuffer(BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit, MemoryPropertyFlags.DeviceLocalBit,
-                ref vertexBuffer, ref vertexMemory, vertexBufferSize);
-
-            var commandBufferAllocateInfo = new CommandBufferAllocateInfo
-            {
-                SType = StructureType.CommandBufferAllocateInfo,
-                CommandPool = commandPool,
-                Level = CommandBufferLevel.Primary,
-                CommandBufferCount = 1
-            };
-
-            vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out var copyCommandBuffer);
-
-            var commandBufferBeginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
-
-            vk.BeginCommandBuffer(copyCommandBuffer, &commandBufferBeginInfo);
-
-            var copyRegion = new BufferCopy { Size = vertexBufferSize };
-
-            vk.CmdCopyBuffer(copyCommandBuffer, stagingBuffer, vertexBuffer, 1, &copyRegion);
-
-            vk.EndCommandBuffer(copyCommandBuffer);
-
-            SubmitWork(copyCommandBuffer, queue);
-
-            vk.DestroyBuffer(device, stagingBuffer, null);
-            vk.FreeMemory(device, stagingMemory, null);
-
-/*            // Indices
-               CreateBuffer(BufferUsageFlags.TransferSrcBit, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
-                   out stagingBuffer, out stagingMemory, indexBufferSize, &indices);
-
-               CreateBuffer(BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit, MemoryPropertyFlags.DeviceLocalBit,
-                   out var indexBuffer, out var indexMemory, indexBufferSize);
-
-            vk.BeginCommandBuffer(copyCommandBuffer, commandBufferBeginInfo);
-
-            copyRegion.Size = indexBufferSize;
-
-            //vk.CmdCopyBuffer(copyCommandBuffer, stagingBuffer, indexBuffer, 1, &copyRegion);
-            vk.EndCommandBuffer(copyCommandBuffer);
-
-            SubmitWork(copyCommandBuffer, queue);
-
-            vk.DestroyBuffer(device, stagingBuffer, null);
-            vk.FreeMemory(device, stagingMemory, null);*/
-            #endregion
+            vk.UnmapMemory(device, deviceMemory);
         }
 
-        private void CreateImage(nint directTextureHandle, uint width, uint height)
+        private void CreateImageView(nint directTextureHandle)
         {
             #region Create image using external memory with DirectX texture handle
             var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo()
@@ -300,7 +277,7 @@ namespace VulkanInterop
             imageCreateInfo.Extent.Height = height;
             imageCreateInfo.Extent.Depth = 1;
 
-            var result = vk.CreateImage(device, &imageCreateInfo, null, out image);
+            _ = vk.CreateImage(device, &imageCreateInfo, null, out image);
 
             vk.GetImageMemoryRequirements(device, image, out var memoryRequirements);
 
@@ -322,9 +299,9 @@ namespace VulkanInterop
                 MemoryTypeIndex = memoryType
             };
 
-            result = vk.AllocateMemory(device, &allocInfo, null, out var deviceMemory);
+            _ = vk.AllocateMemory(device, &allocInfo, null, out var deviceMemory);
 
-            result = vk.BindImageMemory(device, image, deviceMemory, 0);
+            _ = vk.BindImageMemory(device, image, deviceMemory, 0);
 
             var imageViewCreateInfo = new ImageViewCreateInfo
             {
@@ -334,47 +311,48 @@ namespace VulkanInterop
                 Image = image
             };
 
-            result = vk.CreateImageView(device, imageViewCreateInfo, null, out imageView);
+            _ = vk.CreateImageView(device, imageViewCreateInfo, null, out imageView);
             #endregion
         }
         
-        private void CreatePipeline(uint width, uint height)
+        private void CreatePipeline()
         {
             #region Create pipeline
-            byte[] vertShaderCode = ReadBytes("VulkanInteropApp.shaders.shader.vert.spv");
-            byte[] fragShaderCode = ReadBytes("VulkanInteropApp.shaders.shader.frag.spv");
+            byte[] vertShaderCode = ReadBytes("shaders.shader.vert.spv");
+            byte[] fragShaderCode = ReadBytes("shaders.shader.frag.spv");
 
-            var vertShaderModule = CreateShaderModule(vertShaderCode);
-            var fragShaderModule = CreateShaderModule(fragShaderCode);
+            var vertexShaderModule = CreateShaderModule(vertShaderCode);
+            var fragmentShaderModule = CreateShaderModule(fragShaderCode);
 
-            var vertShaderStageInfo = new PipelineShaderStageCreateInfo
+            var vertexShaderStageInfo = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.VertexBit,
-                Module = vertShaderModule,
+                Module = vertexShaderModule,
                 PName = (byte*)SilkMarshal.StringToPtr("main")
             };
 
-            var fragShaderStageInfo = new PipelineShaderStageCreateInfo
+            var fragmentShaderStageInfo = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.FragmentBit,
-                Module = fragShaderModule,
+                Module = fragmentShaderModule,
                 PName = (byte*)SilkMarshal.StringToPtr("main")
             };
 
             var shaderStages = stackalloc[]
             {
-                vertShaderStageInfo,
-                fragShaderStageInfo
+                vertexShaderStageInfo,
+                fragmentShaderStageInfo
             };
 
             var bindingDescription = Vertex.GetBindingDescription();
             var attributeDescriptions = Vertex.GetAttributeDescriptions();
 
             fixed (VertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions)
+            fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
             {
-                var vertexInputInfo = new PipelineVertexInputStateCreateInfo()
+                var vertexInputStateCreateInfo = new PipelineVertexInputStateCreateInfo()
                 {
                     SType = StructureType.PipelineVertexInputStateCreateInfo,
                     VertexBindingDescriptionCount = 1,
@@ -383,7 +361,7 @@ namespace VulkanInterop
                     PVertexAttributeDescriptions = attributeDescriptionsPtr
                 };
 
-                var inputAssembly = new PipelineInputAssemblyStateCreateInfo()
+                var inputAssemblyStateCreateInfo = new PipelineInputAssemblyStateCreateInfo()
                 {
                     SType = StructureType.PipelineInputAssemblyStateCreateInfo,
                     Topology = PrimitiveTopology.TriangleList,
@@ -400,22 +378,22 @@ namespace VulkanInterop
                     MaxDepth = 1
                 };
 
-                var scissor = new Rect2D()
+                var scissorRect = new Rect2D()
                 {
                     Offset = { X = 0, Y = 0 },
                     Extent = new Extent2D(width, height)
                 };
 
-                var viewportState = new PipelineViewportStateCreateInfo()
+                var viewportStateCreateInfo = new PipelineViewportStateCreateInfo()
                 {
                     SType = StructureType.PipelineViewportStateCreateInfo,
                     ViewportCount = 1,
                     PViewports = &viewport,
                     ScissorCount = 1,
-                    PScissors = &scissor
+                    PScissors = &scissorRect
                 };
 
-                var rasterizer = new PipelineRasterizationStateCreateInfo()
+                var rasterizationStateCreateInfo = new PipelineRasterizationStateCreateInfo()
                 {
                     SType = StructureType.PipelineRasterizationStateCreateInfo,
                     DepthClampEnable = false,
@@ -427,89 +405,85 @@ namespace VulkanInterop
                     DepthBiasEnable = false
                 };
 
-                var multisampling = new PipelineMultisampleStateCreateInfo()
+                var multisampleStateCreateInfo = new PipelineMultisampleStateCreateInfo()
                 {
                     SType = StructureType.PipelineMultisampleStateCreateInfo,
                     SampleShadingEnable = false,
                     RasterizationSamples = SampleCountFlags.Count1Bit
                 };
 
-                var colorBlendAttachment = new PipelineColorBlendAttachmentState()
+                var colorBlendAttachmentState = new PipelineColorBlendAttachmentState()
                 {
                     ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
                     BlendEnable = false
                 };
 
-                var colorBlending = new PipelineColorBlendStateCreateInfo()
+                var colorBlendStateCreateInfo = new PipelineColorBlendStateCreateInfo()
                 {
                     SType = StructureType.PipelineColorBlendStateCreateInfo,
                     LogicOpEnable = false,
                     LogicOp = LogicOp.Copy,
                     AttachmentCount = 1,
-                    PAttachments = &colorBlendAttachment
+                    PAttachments = &colorBlendAttachmentState
                 };
 
-                colorBlending.BlendConstants[0] = 0;
-                colorBlending.BlendConstants[1] = 0;
-                colorBlending.BlendConstants[2] = 0;
-                colorBlending.BlendConstants[3] = 0;
+                colorBlendStateCreateInfo.BlendConstants[0] = 0;
+                colorBlendStateCreateInfo.BlendConstants[1] = 0;
+                colorBlendStateCreateInfo.BlendConstants[2] = 0;
+                colorBlendStateCreateInfo.BlendConstants[3] = 0;
 
-                var pipelineLayoutInfo = new PipelineLayoutCreateInfo()
+                var layoutCreateInfo = new PipelineLayoutCreateInfo()
                 {
                     SType = StructureType.PipelineLayoutCreateInfo,
-                    SetLayoutCount = 0,
+                    SetLayoutCount = 1,
+                    PSetLayouts = descriptorSetLayoutPtr,
                     PushConstantRangeCount = 0
                 };
 
-                if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out pipelineLayout) != Result.Success)
-                    throw new Exception("failed to create pipeline layout!");
+                _ = vk.CreatePipelineLayout(device, layoutCreateInfo, null, out pipelineLayout);
 
-                var pipelineInfo = new GraphicsPipelineCreateInfo()
+                var pipelineCreateInfo = new GraphicsPipelineCreateInfo()
                 {
                     SType = StructureType.GraphicsPipelineCreateInfo,
                     StageCount = 2,
                     PStages = shaderStages,
-                    PVertexInputState = &vertexInputInfo,
-                    PInputAssemblyState = &inputAssembly,
-                    PViewportState = &viewportState,
-                    PRasterizationState = &rasterizer,
-                    PMultisampleState = &multisampling,
-                    PColorBlendState = &colorBlending,
+                    PVertexInputState = &vertexInputStateCreateInfo,
+                    PInputAssemblyState = &inputAssemblyStateCreateInfo,
+                    PViewportState = &viewportStateCreateInfo,
+                    PRasterizationState = &rasterizationStateCreateInfo,
+                    PMultisampleState = &multisampleStateCreateInfo,
+                    PColorBlendState = &colorBlendStateCreateInfo,
                     Layout = pipelineLayout,
                     RenderPass = renderPass,
                     Subpass = 0,
                     BasePipelineHandle = default
                 };
 
-                if (vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out pipeline) != Result.Success)
-                    throw new Exception("failed to create graphics pipeline!");
+                _ = vk.CreateGraphicsPipelines(device, default, 1, pipelineCreateInfo, null, out pipeline);
             }
             #endregion
         }
 
-        private void CreateFramebuffer(uint width, uint height)
+        private void CreateFramebuffer()
         {
-            ImageView* imageViewPtr;
-
-            fixed (ImageView* ptr = &imageView)
-                imageViewPtr = ptr;
-
-            FramebufferCreateInfo framebufferInfo = new()
+            fixed (ImageView* imageViewPtr = &imageView)
             {
-                SType = StructureType.FramebufferCreateInfo,
-                RenderPass = renderPass,
-                AttachmentCount = 1,
-                PAttachments = imageViewPtr,
-                Width = width,
-                Height = height,
-                Layers = 1,
-            };
+                var framebufferCreateInfo = new FramebufferCreateInfo()
+                {
+                    SType = StructureType.FramebufferCreateInfo,
+                    RenderPass = renderPass,
+                    AttachmentCount = 1,
+                    PAttachments = imageViewPtr,
+                    Width = width,
+                    Height = height,
+                    Layers = 1,
+                };
 
-            if (vk.CreateFramebuffer(device, framebufferInfo, null, out framebuffer) != Result.Success)
-                throw new Exception("failed to create framebuffer!");
+                _ = vk.CreateFramebuffer(device, framebufferCreateInfo, null, out framebuffer);
+            }
         }
 
-        private void CreateCommandBuffer(uint width, uint height)
+        private void CreateCommandBuffer()
         {
             var commandBufferAllocateInfo = new CommandBufferAllocateInfo
             {
@@ -519,20 +493,20 @@ namespace VulkanInterop
                 CommandBufferCount = 1u,
             };
 
-            var result = vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out commandBuffer);
+            _ = vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out commandBuffer);
 
             var commandBufferBeginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
 
-            result = vk.BeginCommandBuffer(commandBuffer, commandBufferBeginInfo);
+            _ = vk.BeginCommandBuffer(commandBuffer, commandBufferBeginInfo);
 
-            var clearColor = new ClearValue { Color = { Float32_0 = 0, Float32_1 = 0, Float32_2 = 0, Float32_3 = 1 } };
+            var clearColor = new ClearValue { Color = { Float32_0 = 0f, Float32_1 = 0f, Float32_2 = 0f, Float32_3 = 1f } };
 
             var renderPassBeginInfo = new RenderPassBeginInfo
             {
                 SType = StructureType.RenderPassBeginInfo,
                 RenderPass = renderPass,
                 Framebuffer = framebuffer,
-                ClearValueCount = 1,
+                ClearValueCount = 1u,
                 PClearValues = &clearColor,
                 RenderArea =
                 {
@@ -545,16 +519,15 @@ namespace VulkanInterop
 
             vk.CmdBindPipeline(commandBuffer, PipelineBindPoint.Graphics, pipeline);
 
-            var vertexBuffers = new Buffer[] { vertexBuffer };
-            ulong[] offsets = { 0ul };
+            vk.CmdBindVertexBuffers(commandBuffer, 0u, 1u, vertexBuffer, 0ul);
 
-            fixed (ulong* offsetsPtr = offsets)
-            fixed (Buffer* vertexBuffersPtr = vertexBuffers)
-            {
-                vk.CmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffersPtr, offsetsPtr);
-            }
+            /*vk.CmdBindIndexBuffer(commandBuffer, indexBuffer, 0ul, IndexType.Uint32);
 
-            vk.CmdDraw(commandBuffer, (uint)vertices.Length, 1, 0, 0);
+            vk.CmdBindDescriptorSets(commandBuffer, PipelineBindPoint.Graphics, pipelineLayout, 0u, 1u, descriptorSet, 0u, null);
+
+            vk.CmdDrawIndexed(commandBuffer, (uint)indices.Length, 1u, 0u, 0, 0u);*/
+
+            vk.CmdDraw(commandBuffer, (uint)vertices.Length, 1u, 0u, 0u);
 
             vk.CmdEndRenderPass(commandBuffer);
 
@@ -562,10 +535,45 @@ namespace VulkanInterop
                 throw new Exception("failed to record command buffer!");
         }
 
+        private void UpdateModelViewProjection(float time)
+        {
+            var mvp = new ModelViewProjection()
+            {
+                Model = Matrix4x4.Identity * Matrix4x4.CreateFromAxisAngle(new Vector3(0f, 0f, 1f), time * 90.0f * MathF.PI / 180),
+                View = Matrix4x4.CreateLookAt(new Vector3(2f, 2f, 2f), new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 1f)),
+                Projection = Matrix4x4.CreatePerspectiveFieldOfView(45.0f * MathF.PI / 180, width / height, 0.1f, 10.0f),
+            };
+
+            mvp.Projection.M22 *= -1;
+
+            void* data;
+            _ = vk.MapMemory(device, uniformMemory, 0, (ulong)sizeof(ModelViewProjection), 0, &data);
+            new Span<ModelViewProjection>(data, 1)[0] = mvp;
+            vk.UnmapMemory(device, uniformMemory);
+        }
+
+        private void SubmitWork(CommandBuffer cmdBuffer, Queue queue)
+        {
+            var submitInfo = new SubmitInfo
+            {
+                SType = StructureType.SubmitInfo,
+                CommandBufferCount = 1,
+                PCommandBuffers = &cmdBuffer,
+            };
+
+            var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo };
+
+            _ = vk.CreateFence(device, fenceInfo, null, out var fence);
+            _ = vk.QueueSubmit(queue, 1, submitInfo, fence);
+            _ = vk.WaitForFences(device, 1, fence, true, ulong.MaxValue);
+
+            vk.DestroyFence(device, fence, null);
+        }
+
         private unsafe void Cleanup()
         {
             vk.DestroyBuffer(device, vertexBuffer, null);
-            //vk.DestroyBuffer(device, indexBuffer, null);
+            vk.DestroyBuffer(device, indexBuffer, null);
 
             vk.DestroyPipeline(device, pipeline, null);
             vk.DestroyFramebuffer(device, framebuffer, null);
@@ -579,33 +587,30 @@ namespace VulkanInterop
 
         private unsafe ShaderModule CreateShaderModule(byte[] code)
         {
-            var createInfo = new ShaderModuleCreateInfo
-            {
-                SType = StructureType.ShaderModuleCreateInfo,
-                CodeSize = (nuint)code.Length
-            };
-
             fixed (byte* codePtr = code)
             {
-                createInfo.PCode = (uint*)codePtr;
-            }
+                var createInfo = new ShaderModuleCreateInfo
+                {
+                    SType = StructureType.ShaderModuleCreateInfo,
+                    CodeSize = (nuint)code.Length,
+                    PCode = (uint*)codePtr,
+                };
 
-            var shaderModule = new ShaderModule();
-            return vk.CreateShaderModule(device, &createInfo, null, &shaderModule) != Result.Success
-                ? throw new Exception("failed to create shader module!")
-                : shaderModule;
+                _ = vk.CreateShaderModule(device, &createInfo, null, out var shaderModule);
+
+                return shaderModule;
+            }
         }
 
         public void Initialize(nint directTextureHandle, uint width, uint height)
         {
+            this.width = width;
+            this.height = height;
+
             #region Create instance
             var appInfo = new ApplicationInfo
             {
                 SType = StructureType.ApplicationInfo,
-                PApplicationName = (byte*)Marshal.StringToHGlobalAnsi("Hello Triangle"),
-                ApplicationVersion = new Version32(1, 0, 0),
-                PEngineName = (byte*)Marshal.StringToHGlobalAnsi("No Engine"),
-                EngineVersion = new Version32(1, 0, 0),
                 ApiVersion = Vk.Version13
             };
 
@@ -615,27 +620,23 @@ namespace VulkanInterop
                 PApplicationInfo = &appInfo,
             };
 
-            vk.CreateInstance(createInfo, null, out instance);
+            _ = vk.CreateInstance(createInfo, null, out instance);
 
             Log.Info($"Instance {instance.Handle} created");
-
-            Marshal.FreeHGlobal((nint)appInfo.PApplicationName);
-            Marshal.FreeHGlobal((nint)appInfo.PEngineName);
             #endregion
 
             #region Create device
             uint deviceCount = 0u;
 
-            var result = vk.EnumeratePhysicalDevices(instance, ref deviceCount, null);
+            _ = vk.EnumeratePhysicalDevices(instance, ref deviceCount, null);
 
-            result = vk.EnumeratePhysicalDevices(instance, ref deviceCount, ref physicalDevice);
+            _ = vk.EnumeratePhysicalDevices(instance, ref deviceCount, ref physicalDevice);
 
             vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
 
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"GPU: {Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256)}");
+            Log.Info($"GPU: {Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256)}");
 
-            uint queueIndex = GetQueueIndex(physicalDevice);
+            uint queueIndex = GetQueueIndex();
 
             using var mem = GlobalMemory.Allocate(sizeof(DeviceQueueCreateInfo));
             var deviceQueueCreateInfos = (DeviceQueueCreateInfo*)Unsafe.AsPointer(ref mem.GetPinnableReference());
@@ -650,14 +651,14 @@ namespace VulkanInterop
                 PQueuePriorities = &queuePriority
             };
 
-            DeviceCreateInfo deviceCreateinfo = new()
+            var deviceCreateInfo = new DeviceCreateInfo()
             {
                 SType = StructureType.DeviceCreateInfo,
                 QueueCreateInfoCount = 1u,
-                PQueueCreateInfos = deviceQueueCreateInfos,
+                PQueueCreateInfos = deviceQueueCreateInfos
             };
 
-            vk.CreateDevice(physicalDevice, deviceCreateinfo, null, out device);
+            _ = vk.CreateDevice(physicalDevice, deviceCreateInfo, null, out device);
 
             vk.GetDeviceQueue(device, queueIndex, 0, out queue);
             #endregion
@@ -669,13 +670,11 @@ namespace VulkanInterop
                 QueueFamilyIndex = queueIndex
             };
 
-            vk.CreateCommandPool(device, commandPoolCreateInfo, null, out commandPool);
+            _ = vk.CreateCommandPool(device, commandPoolCreateInfo, null, out commandPool);
             #endregion
 
-            CreateBuffers();
-
             #region Create render pass
-            var colorAttachment = new AttachmentDescription
+            var attachmentDescription = new AttachmentDescription
             {
                 Format = Format.B8G8R8A8Unorm,
                 Samples = SampleCountFlags.Count1Bit,
@@ -686,20 +685,20 @@ namespace VulkanInterop
                 FinalLayout = ImageLayout.PresentSrcKhr,
             };
 
-            var colorAttachmentRef = new AttachmentReference
+            var attachmentReference = new AttachmentReference
             {
                 Attachment = 0,
                 Layout = ImageLayout.ColorAttachmentOptimal,
             };
 
-            var subpass = new SubpassDescription
+            var subpassDescription = new SubpassDescription
             {
                 PipelineBindPoint = PipelineBindPoint.Graphics,
                 ColorAttachmentCount = 1,
-                PColorAttachments = &colorAttachmentRef,
+                PColorAttachments = &attachmentReference,
             };
 
-            var dependency = new SubpassDependency
+            var subpassDependency = new SubpassDependency
             {
                 SrcSubpass = Vk.SubpassExternal,
                 DstSubpass = 0,
@@ -709,41 +708,146 @@ namespace VulkanInterop
                 DstAccessMask = AccessFlags.ColorAttachmentWriteBit
             };
 
-            var renderPassInfo = new RenderPassCreateInfo
+            var renderPassCreateInfo = new RenderPassCreateInfo
             {
                 SType = StructureType.RenderPassCreateInfo,
                 AttachmentCount = 1,
-                PAttachments = &colorAttachment,
+                PAttachments = &attachmentDescription,
                 SubpassCount = 1,
-                PSubpasses = &subpass,
+                PSubpasses = &subpassDescription,
                 DependencyCount = 1,
-                PDependencies = &dependency,
+                PDependencies = &subpassDependency,
             };
 
-            if (vk.CreateRenderPass(device, renderPassInfo, null, out renderPass) != Result.Success)
-                throw new Exception("failed to create render pass!");
+            _ = vk.CreateRenderPass(device, renderPassCreateInfo, null, out renderPass);
             #endregion
 
-            CreatePipeline(width, height);
+            #region Create descriptor pool
+            var descriptorPoolSize = new DescriptorPoolSize()
+            {
+                Type = DescriptorType.UniformBuffer,
+                DescriptorCount = 1u
+            };
 
-            CreateImage(directTextureHandle, width, height);
+            var descriptorPoolCreateInfo = new DescriptorPoolCreateInfo()
+            {
+                SType = StructureType.DescriptorPoolCreateInfo,
+                PoolSizeCount = 1,
+                PPoolSizes = &descriptorPoolSize,
+                MaxSets = 1u
+            };
 
-            CreateFramebuffer(width, height);
+            _ = vk.CreateDescriptorPool(device, descriptorPoolCreateInfo, null, out descriptorPool);
+            #endregion
 
-            CreateCommandBuffer(width, height);
+            #region Create descriptor set layout
+            var descriptorSetLayoutBinding = new DescriptorSetLayoutBinding()
+            {
+                Binding = 0,
+                DescriptorCount = 1,
+                DescriptorType = DescriptorType.UniformBuffer,
+                PImmutableSamplers = null,
+                StageFlags = ShaderStageFlags.VertexBit
+            };
+
+            var descriptorSetLayoutCreateInfo = new DescriptorSetLayoutCreateInfo()
+            {
+                SType = StructureType.DescriptorSetLayoutCreateInfo,
+                BindingCount = 1,
+                PBindings = &descriptorSetLayoutBinding
+            };
+
+            _ = vk.CreateDescriptorSetLayout(device, descriptorSetLayoutCreateInfo, null, out descriptorSetLayout);
+            #endregion
+
+            #region Create descriptor set
+            fixed (DescriptorSetLayout* setLayoutPtr = &descriptorSetLayout)
+            {
+                var descriptorSetAllocateInfo = new DescriptorSetAllocateInfo()
+                {
+                    SType = StructureType.DescriptorSetAllocateInfo,
+                    DescriptorPool = descriptorPool,
+                    DescriptorSetCount = 1u,
+                    PSetLayouts = setLayoutPtr,
+                };
+
+                _ = vk.AllocateDescriptorSets(device, descriptorSetAllocateInfo, out descriptorSet);
+            }
+
+            var descriptorBufferInfo = new DescriptorBufferInfo()
+            {
+                Buffer = uniformBuffer,
+                Offset = 0,
+                Range = (ulong)sizeof(ModelViewProjection)
+            };
+
+            var writeDescriptorSet = new WriteDescriptorSet()
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = descriptorSet,
+                DstBinding = 0,
+                DstArrayElement = 0,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DescriptorCount = 1,
+                PBufferInfo = &descriptorBufferInfo,
+            };
+
+            vk.UpdateDescriptorSets(device, 1, writeDescriptorSet, 0, null);
+            #endregion
+
+            CreateImageView(directTextureHandle);
+
+            CreatePipeline();
+
+            CreateFramebuffer();
+
+            #region Create vertex, index and uniform buffers
+            ulong vertexBufferSize = (ulong)(vertices.Length * sizeof(Vertex));
+            ulong indexBufferSize = (ulong)(indices.Length * sizeof(uint));
+            ulong mvpBufferSize = (ulong)sizeof(ModelViewProjection);
+
+            CreateBuffer(BufferUsageFlags.VertexBufferBit, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
+                out vertexBuffer, out vertexMemory, vertexBufferSize);
+
+            CreateBuffer(BufferUsageFlags.IndexBufferBit, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
+                out indexBuffer, out indexMemory, indexBufferSize);
+
+            CreateBuffer(BufferUsageFlags.UniformBufferBit, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
+                out uniformBuffer, out uniformMemory, mvpBufferSize);
+            #endregion
+
+            CreateCommandBuffer();
         }
 
-        public void Draw() => SubmitWork(commandBuffer, queue);
+        public void Draw(float time)
+        {
+            //UpdateModelViewProjection(time);
+            SubmitWork(commandBuffer, queue);
+        }
 
         public void Resize(nint directTextureHandle, uint width, uint height)
         {
-            CreatePipeline(width, height);
+            this.width = width;
+            this.height = height;
 
-            CreateImage(directTextureHandle, width, height);
+            vk.DestroyImage(device, image, null);
+            vk.DestroyImageView(device, imageView, null);
 
-            CreateFramebuffer(width, height);
+            vk.DestroyFramebuffer(device, framebuffer, null);
 
-            CreateCommandBuffer(width, height);
+            vk.DestroyPipeline(device, pipeline, null);
+            vk.DestroyPipelineLayout(device, pipelineLayout, null);
+
+            fixed (CommandBuffer* commandBuffersPtr = &commandBuffer)
+                vk.FreeCommandBuffers(device, commandPool, 1u, commandBuffersPtr);
+
+            CreateImageView(directTextureHandle);
+
+            CreatePipeline();
+
+            CreateFramebuffer();
+
+            CreateCommandBuffer();
         }
     }
 }

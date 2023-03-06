@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 using Microsoft.UI.Xaml;
@@ -15,9 +16,9 @@ namespace SwapchainApp.WinUI3
 {
     public sealed partial class MainWindow : Window
     {
-        private VulkanInteropApp vulkanApp = new();
+        private readonly Stopwatch stopwatch = new();
 
-        private nint sharedTextureHandle;
+        private readonly VulkanInteropApp vulkanApp = new();
 
         private readonly D3D11 d3d11 = D3D11.GetApi();
 
@@ -38,13 +39,22 @@ namespace SwapchainApp.WinUI3
         private ComPtr<ID3D11Resource> colorResource;
         private ComPtr<ID3D11Resource> renderTargetResource;
 
+        private nint sharedTextureHandle;
+
         private unsafe void InitializeDirectX()
         {
             #region Create device and context
-            SilkMarshal.ThrowHResult
-            (
-                d3d11.CreateDevice(default(ComPtr<IDXGIAdapter>), D3DDriverType.Hardware, default, (uint)CreateDeviceFlag.BgraSupport, null, 0u, D3D11.SdkVersion, device.GetAddressOf(), null, context.GetAddressOf())
-            );
+            _ = d3d11.CreateDevice(
+                default(ComPtr<IDXGIAdapter>),
+                D3DDriverType.Hardware, default,
+                (uint)CreateDeviceFlag.BgraSupport,
+                null,
+                0u,
+                D3D11.SdkVersion,
+                device.GetAddressOf(),
+                null,
+                context.GetAddressOf());
+
             #endregion
 
             #region Get DXGI device and adapter
@@ -56,8 +66,6 @@ namespace SwapchainApp.WinUI3
             guid = IDXGIFactory2.Guid;
             adapter.Get().GetParent(ref guid, (void**)factory2.GetAddressOf());
             #endregion
-
-            CreateSharedResources((uint)Bounds.Width, (uint)Bounds.Height);
         }
 
         private unsafe void CreateSharedResources(uint width, uint height)
@@ -76,7 +84,7 @@ namespace SwapchainApp.WinUI3
                 BufferUsage = DXGI.UsageRenderTargetOutput,
             };
 
-            factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, null, swapchain1.GetAddressOf());
+            _ = factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, null, swapchain1.GetAddressOf());
             #endregion
 
             var renderTargetDescription = new Texture2DDesc
@@ -93,15 +101,15 @@ namespace SwapchainApp.WinUI3
                 SampleDesc = new SampleDesc(1, 0)
             };
 
-            device.Get().CreateTexture2D(ref renderTargetDescription, null, renderTarget.GetAddressOf());
+            _ = device.Get().CreateTexture2D(ref renderTargetDescription, null, renderTarget.GetAddressOf());
 
             var guid = IDXGIResource.Guid;
             ComPtr<IDXGIResource> resource = default;
 
-            renderTarget.Get().QueryInterface(ref guid, (void**)resource.GetAddressOf());
+            _ = renderTarget.Get().QueryInterface(ref guid, (void**)resource.GetAddressOf());
 
             void* sharedHandle;
-            resource.Get().GetSharedHandle(&sharedHandle);
+            _ = resource.Get().GetSharedHandle(&sharedHandle);
 
             sharedTextureHandle = (nint)sharedHandle;
 
@@ -109,13 +117,38 @@ namespace SwapchainApp.WinUI3
 
             guid = ID3D11Texture2D.Guid;
 
-            swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
+            _ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
 
             guid = ID3D11Resource.Guid;
 
-            colorTexture.Get().QueryInterface(ref guid, (void**)colorResource.GetAddressOf());
-            renderTarget.Get().QueryInterface(ref guid, (void**)renderTargetResource.GetAddressOf());
+            _ = colorTexture.Get().QueryInterface(ref guid, (void**)colorResource.GetAddressOf());
+            _ = renderTarget.Get().QueryInterface(ref guid, (void**)renderTargetResource.GetAddressOf());
+        }
 
+        private void OnSwapchainPanelSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            uint width = (uint)e.NewSize.Width;
+            uint height = (uint)e.NewSize.Height;
+
+            Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
+
+            swapchain1.Release();
+
+            colorTexture.Release();
+            renderTarget.Release();
+
+            colorResource.Release();
+            renderTargetResource.Release();
+
+            CreateSharedResources(width, height);
+
+            SetSwapchain();
+
+            vulkanApp.Resize(sharedTextureHandle, width, height);
+        }
+
+        private void SetSwapchain()
+        {
             var nativePanel = swapchainPanel.As<ISwapChainPanelNative>();
             _ = nativePanel.SetSwapChain(swapchain1);
         }
@@ -127,35 +160,33 @@ namespace SwapchainApp.WinUI3
             _ = swapchain1.Get().Present(0u, (uint)SwapChainFlag.None);
         }
 
-        private void OnSwapchainPanelSizeChanged(object sender, SizeChangedEventArgs e)
+        private void OnSwapchainPanelLoaded(object sender, RoutedEventArgs e)
         {
-            CompositionTarget.Rendering += (s, e) => Draw();
+            uint width = (uint)swapchainPanel.ActualWidth;
+            uint height = (uint)swapchainPanel.ActualHeight;
 
-            var size = e.NewSize;
+            InitializeDirectX();
 
-            Console.WriteLine($"SwapchainPanel resized: width - {size.Width}, height - {size.Height}");
+            CreateSharedResources(width, height);
 
-            CreateSharedResources((uint)size.Width, (uint)size.Height);
+            SetSwapchain();
 
-            vulkanApp.Resize(sharedTextureHandle, (uint)size.Width, (uint)size.Height);
+            vulkanApp.Initialize(sharedTextureHandle, width, height);
 
-            var nativePanel = swapchainPanel.As<ISwapChainPanelNative>();
-            _ = nativePanel.SetSwapChain(swapchain1);
+            swapchainPanel.SizeChanged += OnSwapchainPanelSizeChanged;
+
+            CompositionTarget.Rendering += (s, e) =>
+            {
+                vulkanApp.Draw(stopwatch.ElapsedMilliseconds);
+                Draw();
+            };
+
+            stopwatch.Start();
         }
 
         public MainWindow()
         {
             InitializeComponent();
-
-            InitializeDirectX();
-
-            vulkanApp.Initialize(sharedTextureHandle, (uint)Bounds.Width, (uint)Bounds.Height);
-
-            CompositionTarget.Rendering += (s, e) =>
-            {
-                vulkanApp.Draw();
-                Draw();
-            };
         }
 
         [ComImport, Guid("63aad0b8-7c24-40ff-85a8-640d944cc325"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
