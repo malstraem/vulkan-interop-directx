@@ -28,16 +28,16 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <ShaderOutputPath>shaders</ShaderOutputPath>
+    <ShadersOutputPath>shaders</ShadersOutputPath>
   </PropertyGroup>
 
   <Target Name="BuildVulkanShaders" AfterTargets="BeforeBuild">
-    <Message Text="VulkanBinPath: $(VulkanBinPath)" Importance="high" />
-    <Message Text="ShaderOutputPath: $(ShaderOutputPath)" Importance="high" />
-    <Message Text="VertexShader: @(VertexShaders)" Importance="high" />
-    <Message Text="FragmentShader: @(FragmentShaders)" Importance="high" />
-    <MakeDir Directories="$(ShaderOutputPath)" Condition="!Exists('$(ShaderOutputPath)')" />
-    <Exec Command="glslc shaders\%(VertexShaders.Filename)%(VertexShaders.Extension) -o $(ShaderOutputPath)\%(VertexShaders.Filename)%(VertexShaders.Extension).spv" />
-    <Exec Command="glslc shaders\%(FragmentShaders.Filename)%(FragmentShaders.Extension) -o $(ShaderOutputPath)\%(FragmentShaders.Filename)%(FragmentShaders.Extension).spv" />
+    <!--
+    <Message Text="Shader output path: $(ShadersOutputPath)" Importance="high" />
+    <Message Text="Vertex shaders: @(VertexShaders)" Importance="high" />
+    <Message Text="Fragment shaders: @(FragmentShaders)" Importance="high" />
+    <Exec Command="glslc shaders\%(VertexShaders.Filename)%(VertexShaders.Extension) -o $(ShadersOutputPath)\%(VertexShaders.Filename)%(VertexShaders.Extension).spv" />
+    <Exec Command="glslc shaders\%(FragmentShaders.Filename)%(FragmentShaders.Extension) -o $(ShadersOutputPath)\%(FragmentShaders.Filename)%(FragmentShaders.Extension).spv" />
+    -->
   </Target>
 </Project>

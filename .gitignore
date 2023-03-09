@@ -5,3 +5,5 @@
 
 .vs/
 build/
+
+*.user

@@ -6,10 +6,7 @@ namespace Interop.WinUI3
     {
         private Window? window;
 
-        public App()
-        {
-            InitializeComponent();
-        }
+        public App() => InitializeComponent();
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {

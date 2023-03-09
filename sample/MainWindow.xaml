@@ -8,6 +8,9 @@
   mc:Ignorable="d">
 
   <Grid>
+    <Rectangle x:Name="titleBarRectangle" Height="25" Fill="Transparent"
+               HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
+
     <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
     <TextBlock Text="" VerticalAlignment="Center" HorizontalAlignment="Center"/>

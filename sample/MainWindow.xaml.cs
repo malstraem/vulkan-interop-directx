@@ -45,7 +45,7 @@ namespace Interop.WinUI3
         {
             #region Create device and context
             _ = d3d11.CreateDevice(
-                default(ComPtr<IDXGIAdapter>),
+                null,
                 D3DDriverType.Hardware, default,
                 (uint)CreateDeviceFlag.BgraSupport,
                 null,
@@ -54,31 +54,30 @@ namespace Interop.WinUI3
                 device.GetAddressOf(),
                 null,
                 context.GetAddressOf());
-
             #endregion
 
             #region Get DXGI device and adapter
             var guid = IDXGIDevice3.Guid;
 
-            device.Get().QueryInterface(ref guid, (void**)dxgiDevice3.GetAddressOf());
-            dxgiDevice3.Get().GetAdapter(adapter.GetAddressOf());
+            _ = device.Get().QueryInterface(ref guid, (void**)dxgiDevice3.GetAddressOf());
+            _ = dxgiDevice3.Get().GetAdapter(adapter.GetAddressOf());
 
             guid = IDXGIFactory2.Guid;
-            adapter.Get().GetParent(ref guid, (void**)factory2.GetAddressOf());
+            _ = adapter.Get().GetParent(ref guid, (void**)factory2.GetAddressOf());
             #endregion
         }
 
-        private unsafe void CreateSharedResources(uint width, uint height)
+        private unsafe void CreateResources(uint width, uint height)
         {
             #region Create swapchain
             var swapchainDesc1 = new SwapChainDesc1
             {
                 AlphaMode = AlphaMode.Unspecified,
                 Format = Format.FormatB8G8R8A8Unorm,
-                BufferCount = 2,
+                BufferCount = 2u,
                 Width = width,
                 Height = height,
-                SampleDesc = new SampleDesc(1, 0),
+                SampleDesc = new SampleDesc(1u, 0u),
                 Scaling = Scaling.Stretch,
                 SwapEffect = SwapEffect.FlipSequential,
                 BufferUsage = DXGI.UsageRenderTargetOutput,
@@ -94,11 +93,11 @@ namespace Interop.WinUI3
                 Height = height,
                 Usage = Usage.Default,
                 Format = Format.FormatB8G8R8A8Unorm,
-                ArraySize = 1,
+                ArraySize = 1u,
                 BindFlags = (uint)BindFlag.RenderTarget,
                 MiscFlags = (uint)ResourceMiscFlag.Shared,
-                MipLevels = 1,
-                SampleDesc = new SampleDesc(1, 0)
+                MipLevels = 1u,
+                SampleDesc = new SampleDesc(1u, 0u)
             };
 
             _ = device.Get().CreateTexture2D(ref renderTargetDescription, null, renderTarget.GetAddressOf());
@@ -132,15 +131,15 @@ namespace Interop.WinUI3
 
             Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-            swapchain1.Get().Release();
+            _ = swapchain1.Release();
 
-            colorTexture.Get().Release();
-            renderTarget.Get().Release();
+            _ = colorTexture.Release();
+            _ = renderTarget.Release();
 
-            colorResource.Get().Release();
-            renderTargetResource.Get().Release();
+            _ = colorResource.Release();
+            _ = renderTargetResource.Release();
 
-            CreateSharedResources(width, height);
+            CreateResources(width, height);
 
             SetSwapchain();
 
@@ -167,7 +166,7 @@ namespace Interop.WinUI3
 
             InitializeDirectX();
 
-            CreateSharedResources(width, height);
+            CreateResources(width, height);
 
             SetSwapchain();
 
@@ -177,7 +176,7 @@ namespace Interop.WinUI3
 
             CompositionTarget.Rendering += (s, e) =>
             {
-                vulkanInterop.Draw(stopwatch.ElapsedMilliseconds);
+                vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
                 Draw();
             };
 
@@ -187,6 +186,9 @@ namespace Interop.WinUI3
         public MainWindow()
         {
             InitializeComponent();
+
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(titleBarRectangle);
         }
 
         [ComImport, Guid("63aad0b8-7c24-40ff-85a8-640d944cc325"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
