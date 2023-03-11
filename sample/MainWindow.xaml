@@ -5,14 +5,17 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   
+  Closed="OnWindowClosed"
+  
   mc:Ignorable="d">
 
   <Grid>
-    <Rectangle x:Name="titleBarRectangle" Height="25" Fill="Transparent"
+    <Rectangle Name="titleBarRectangle" Height="25" Fill="Transparent"
                HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
 
     <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
-    <TextBlock Text="" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    <ToggleSwitch Padding="10" OffContent="Stopped" OnContent="Rotating" Toggled="OnSwitchToggled" 
+                  VerticalAlignment="Center" HorizontalAlignment="Center"/>
   </Grid>
 </Window>

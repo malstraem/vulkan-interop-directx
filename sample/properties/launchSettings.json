@@ -2,7 +2,7 @@
   "profiles": {
     "Interop.WinUI3": {
       "commandName": "MsixPackage",
-      "nativeDebugging": false
+      "nativeDebugging": true
     }
   }
 }
