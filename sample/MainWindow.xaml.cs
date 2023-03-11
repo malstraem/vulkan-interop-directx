@@ -2,8 +2,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 
 using WinRT;
 
@@ -179,13 +179,13 @@ namespace Interop.WinUI3
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-            _ = swapchain1.Release();
+            _ = colorResource.Release();
+            _ = renderTargetResource.Release();
 
             _ = colorTexture.Release();
             _ = renderTargetTexture.Release();
 
-            _ = colorResource.Release();
-            _ = renderTargetResource.Release();
+            _ = swapchain1.Release();
 
             CreateResources(width, height);
 

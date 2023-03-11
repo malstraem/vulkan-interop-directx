@@ -15,7 +15,7 @@
 
     <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
-    <ToggleSwitch Padding="10" OffContent="Stopped" OnContent="Rotating" Toggled="OnSwitchToggled" 
+    <ToggleSwitch OffContent="Stopped" OnContent="Rotating" Toggled="OnSwitchToggled" 
                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
   </Grid>
 </Window>

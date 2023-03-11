@@ -365,7 +365,6 @@ namespace Interop.Vulkan
             var attributeDescriptions = VertexPositionColor.GetAttributeDescriptions();
 
             fixed (VertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions)
-            fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
             {
                 var vertexInputStateCreateInfo = new PipelineVertexInputStateCreateInfo()
                 {
@@ -434,15 +433,6 @@ namespace Interop.Vulkan
                     PAttachments = &colorBlendAttachmentState,
                     AttachmentCount = 1u
                 };
-
-                var layoutCreateInfo = new PipelineLayoutCreateInfo()
-                {
-                    SType = StructureType.PipelineLayoutCreateInfo,
-                    PSetLayouts = descriptorSetLayoutPtr,
-                    SetLayoutCount = 1u
-                };
-
-                Check(vk.CreatePipelineLayout(device, layoutCreateInfo, null, out pipelineLayout));
 
                 var pipelineCreateInfo = new GraphicsPipelineCreateInfo()
                 {
@@ -611,6 +601,9 @@ namespace Interop.Vulkan
                     break;
                 }
             }
+
+            if (physicalDevice.Handle == nint.Zero)
+                throw new Exception("suitable device not found");
 
             vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
 
@@ -806,9 +799,22 @@ namespace Interop.Vulkan
             vk.UpdateDescriptorSets(device, 1u, writeDescriptorSet, 0u, null);
             #endregion
 
-            CreateImageView(directTextureHandle);
+            //Create pipeline layout
+            fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
+            {
+                var layoutCreateInfo = new PipelineLayoutCreateInfo()
+                {
+                    SType = StructureType.PipelineLayoutCreateInfo,
+                    PSetLayouts = descriptorSetLayoutPtr,
+                    SetLayoutCount = 1u
+                };
+
+                Check(vk.CreatePipelineLayout(device, layoutCreateInfo, null, out pipelineLayout));
+            }
 
             CreatePipeline();
+
+            CreateImageView(directTextureHandle);
 
             CreateFramebuffer();
 
@@ -832,7 +838,6 @@ namespace Interop.Vulkan
             vk.DestroyFramebuffer(device, framebuffer, null);
 
             vk.DestroyPipeline(device, pipeline, null);
-            vk.DestroyPipelineLayout(device, pipelineLayout, null);
 
             fixed (CommandBuffer* commandBuffersPtr = &commandBuffer)
                 vk.FreeCommandBuffers(device, commandPool, 1u, commandBuffersPtr);
@@ -868,7 +873,12 @@ namespace Interop.Vulkan
 
             vk.DestroyFramebuffer(device, framebuffer, null);
 
+            fixed (CommandBuffer* commandBuffersPtr = &commandBuffer)
+                vk.FreeCommandBuffers(device, commandPool, 1u, commandBuffersPtr);
+
             vk.DestroyCommandPool(device, commandPool, null);
+
+            vk.DestroyFence(device, fence, null);
             vk.DestroyDevice(device, null);
             vk.DestroyInstance(instance, null);
         }
