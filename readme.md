@@ -25,13 +25,15 @@ var swapchainDesc1 = new SwapChainDesc1
     BufferUsage = DXGI.UsageRenderTargetOutput
 };
 
-_ = factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, null, swapchain1.GetAddressOf());
+_ = factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, 
+        null, swapchain1.GetAddressOf());
 
 var guid = ID3D11Texture2D.Guid;
 _ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
 ```
-
->Width and height received from WinUI SwapChainPanel element which must accept our swapchain
+> **Note**
+> 
+> Width and height was received from WinUI SwapChainPanel element which must accept our swapchain
 
 2. Create "render target" D3D texture in shared mode
 
