@@ -24,40 +24,30 @@ namespace Interop.Vulkan
 
             public readonly Vector3 Color;
 
-            public static VertexInputBindingDescription GetBindingDescription()
+            public static VertexInputBindingDescription GetBindingDescription() => new()
             {
-                VertexInputBindingDescription bindingDescription = new()
-                {
-                    Stride = (uint)sizeof(VertexPositionColor),
-                    InputRate = VertexInputRate.Vertex,
-                    Binding = 0u
-                };
+                Stride = (uint)sizeof(VertexPositionColor),
+                InputRate = VertexInputRate.Vertex,
+                Binding = 0u
+            };
 
-                return bindingDescription;
-            }
-
-            public static VertexInputAttributeDescription[] GetAttributeDescriptions()
+            public static VertexInputAttributeDescription[] GetAttributeDescriptions() => new[]
             {
-                var attributeDescriptions = new[]
+                new VertexInputAttributeDescription()
                 {
-                    new VertexInputAttributeDescription()
-                    {
-                        Format = Format.R32G32B32Sfloat,
-                        Offset = (uint)Marshal.OffsetOf<VertexPositionColor>(nameof(Position)),
-                        Binding = 0u,
-                        Location = 0u
-                    },
-                    new VertexInputAttributeDescription()
-                    {
-                        Format = Format.R32G32B32Sfloat,
-                        Offset = (uint)Marshal.OffsetOf<VertexPositionColor>(nameof(Color)),
-                        Binding = 0u,
-                        Location = 1u
-                    }
-                };
-
-                return attributeDescriptions;
-            }
+                    Format = Format.R32G32B32Sfloat,
+                    Offset = (uint)Marshal.OffsetOf<VertexPositionColor>(nameof(Position)),
+                    Binding = 0u,
+                    Location = 0u
+                },
+                new VertexInputAttributeDescription()
+                {
+                    Format = Format.R32G32B32Sfloat,
+                    Offset = (uint)Marshal.OffsetOf<VertexPositionColor>(nameof(Color)),
+                    Binding = 0u,
+                    Location = 1u
+                }
+            };
         }
 
         private struct ModelViewProjection
@@ -369,10 +359,10 @@ namespace Interop.Vulkan
                 var vertexInputStateCreateInfo = new PipelineVertexInputStateCreateInfo()
                 {
                     SType = StructureType.PipelineVertexInputStateCreateInfo,
-                    VertexBindingDescriptionCount = 1u,
                     VertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
                     PVertexAttributeDescriptions = attributeDescriptionsPtr,
-                    PVertexBindingDescriptions = &bindingDescription
+                    PVertexBindingDescriptions = &bindingDescription,
+                    VertexBindingDescriptionCount = 1u
                 };
 
                 var inputAssemblyStateCreateInfo = new PipelineInputAssemblyStateCreateInfo()
@@ -533,8 +523,9 @@ namespace Interop.Vulkan
             mvp.Projection.M22 *= -1f;
 
             void* data;
+
             Check(vk.MapMemory(device, uniformMemory, 0ul, (ulong)sizeof(ModelViewProjection), 0u, &data));
-            new Span<ModelViewProjection>(data, 1)[0] = mvp;
+            _ = new Span<ModelViewProjection>(data, 1)[0] = mvp;
             vk.UnmapMemory(device, uniformMemory);
         }
 
@@ -671,8 +662,8 @@ namespace Interop.Vulkan
 
             var colorAttachmentReference = new AttachmentReference
             {
-                Attachment = 0u,
-                Layout = ImageLayout.ColorAttachmentOptimal
+                Layout = ImageLayout.ColorAttachmentOptimal,
+                Attachment = 0u
             };
 
             var subpassDescription = new SubpassDescription

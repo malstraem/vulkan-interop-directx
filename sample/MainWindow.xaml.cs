@@ -81,23 +81,27 @@ namespace Interop.WinUI3
 
         private unsafe void CreateResources(uint width, uint height)
         {
-            #region Create swapchain
+            #region Create swapchain and get texture
             var swapchainDesc1 = new SwapChainDesc1
             {
                 AlphaMode = AlphaMode.Unspecified,
                 Format = Format.FormatB8G8R8A8Unorm,
-                BufferCount = 2u,
                 Width = width,
                 Height = height,
-                SampleDesc = new SampleDesc(1u, 0u),
                 Scaling = Scaling.Stretch,
                 SwapEffect = SwapEffect.FlipSequential,
+                SampleDesc = new SampleDesc(1u, 0u),
                 BufferUsage = DXGI.UsageRenderTargetOutput,
+                BufferCount = 2u
             };
 
             _ = factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, null, swapchain1.GetAddressOf());
+
+            var guid = ID3D11Texture2D.Guid;
+            _ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
             #endregion
 
+            #region Create render target texture
             var renderTargetDescription = new Texture2DDesc
             {
                 CPUAccessFlags = (uint)CpuAccessFlag.None,
@@ -105,16 +109,16 @@ namespace Interop.WinUI3
                 Height = height,
                 Usage = Usage.Default,
                 Format = Format.FormatB8G8R8A8Unorm,
-                ArraySize = 1u,
                 BindFlags = (uint)BindFlag.RenderTarget,
                 MiscFlags = (uint)ResourceMiscFlag.Shared,
-                MipLevels = 1u,
-                SampleDesc = new SampleDesc(1u, 0u)
+                SampleDesc = new SampleDesc(1u, 0u),
+                ArraySize = 1u,
+                MipLevels = 1u
             };
 
             _ = device.Get().CreateTexture2D(ref renderTargetDescription, null, renderTargetTexture.GetAddressOf());
 
-            var guid = IDXGIResource.Guid;
+            guid = IDXGIResource.Guid;
             ComPtr<IDXGIResource> resource = default;
 
             _ = renderTargetTexture.Get().QueryInterface(ref guid, (void**)resource.GetAddressOf());
@@ -124,14 +128,12 @@ namespace Interop.WinUI3
 
             sharedTextureHandle = (nint)sharedHandle;
 
+            resource.Release();
+
             Console.WriteLine($"Shared texture created: 0x{sharedTextureHandle:X16}");
-
-            guid = ID3D11Texture2D.Guid;
-
-            _ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
+            #endregion
 
             guid = ID3D11Resource.Guid;
-
             _ = colorTexture.Get().QueryInterface(ref guid, (void**)colorResource.GetAddressOf());
             _ = renderTargetTexture.Get().QueryInterface(ref guid, (void**)renderTargetResource.GetAddressOf());
         }

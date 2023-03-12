@@ -11,6 +11,8 @@
     <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
     <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+    <ShadersOutputPath>shaders</ShadersOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,15 +23,9 @@
   <ItemGroup>
     <VertexShaders Include="shaders\*.vert" />
     <FragmentShaders Include="shaders\*.frag" />
-  </ItemGroup>
 
-  <ItemGroup>
     <EmbeddedResource Include="shaders\*.spv" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <ShadersOutputPath>shaders</ShadersOutputPath>
-  </PropertyGroup>
 
   <Target Name="BuildVulkanShaders" AfterTargets="BeforeBuild">
     <!--
