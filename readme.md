@@ -1,8 +1,12 @@
 # Overview
 
-This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory.html) extension. Example is written naive without any abstractions and mostly follows great [Alexander Overvoorde's vulkan tutorial](https://vulkan-tutorial.com) to create vulkan resources.
+This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory.html) extension. 
 
-But excludes vulkan swapchain infrastructure, example creates framebuffer using shared Direct3D 11 texture.
+Example is written naive without any abstractions and mostly follows great [Alexander Overvoorde's vulkan tutorial](https://vulkan-tutorial.com) to create vulkan resources but excludes vulkan swapchain infrastructure and creates framebuffer using shared Direct3D 11 texture.
+
+[Silk.NET](https://github.com/dotnet/Silk.NET) bindings are used for DirectX and Vulkan calling.
+
+https://user-images.githubusercontent.com/59914970/224508276-392b1869-33c4-40c0-a3f8-0d9731c06f4c.mp4
 
 # Interop process
 
@@ -108,4 +112,4 @@ We also need to handle resizing - when it occurs we need to recreate DirectX and
 # Prerequisites
 * .NET 7
 * Windows SDK 10.0.22621
-* Vulkan SDK (in the fact not necessaraly while you don't want compile shader yourself, repo contains  `.spv` files and comment build instractions in csproj.
+* Vulkan SDK (if you want compile shaders yourself)
