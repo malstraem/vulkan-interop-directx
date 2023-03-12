@@ -64,7 +64,7 @@ _ = resource.Get().GetSharedHandle(&sharedHandle);
 sharedTextureHandle = (nint)sharedHandle;
 ```
 
-4. On the vulkan side create image using shared handle for memory importing, after this create imageview and framebuffer
+4. On the vulkan side - create image using shared handle for memory importing, after this create imageview and framebuffer
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo()
@@ -101,7 +101,7 @@ Check(vk.AllocateMemory(device, &allocInfo, null, out var deviceMemory));
 Check(vk.BindImageMemory(device, image, deviceMemory, 0ul));
 ```
 
-Now, when we created framebuffer we are ready for interop - just render a frame and call DirectX to copy data from "render target" to texture associated with swapchain and present it.
+Now that framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present.
 
 ```csharp
 context.Get().CopyResource(colorResource.Handle, renderTargetResource.Handle);
