@@ -1,6 +1,6 @@
 # Overview
 
-This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory.html) extension. 
+This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore_win32.html) extension. 
 
 Example is written naive without any abstractions and mostly follows great [Alexander Overvoorde's vulkan tutorial](https://vulkan-tutorial.com) to create vulkan resources but excludes vulkan swapchain infrastructure and creates framebuffer using shared Direct3D 11 texture.
 
@@ -33,9 +33,9 @@ _ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf())
 ```
 > **Note**
 > 
-> Width and height was received from WinUI SwapChainPanel element which must accept our swapchain
+> Width and height was received from WinUI SwapChainPanel element which accepts our swapchain
 
-2. Create "render target" D3D texture in shared mode
+1. Create "render target" D3D texture in shared mode
 
 ```csharp
 var renderTargetDescription = new Texture2DDesc
@@ -64,14 +64,11 @@ _ = resource.Get().GetSharedHandle(&sharedHandle);
 sharedTextureHandle = (nint)sharedHandle;
 ```
 
-4. On the vulkan side - create image using shared handle for memory importing, after this create imageview and framebuffer
+4. On the vulkan side - create image using shared handle for memory importing, after this create view and framebuffer
 
 ```csharp
-var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo()
-{
-    ...
-    HandleTypes = ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit
-};
+var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(
+    handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
 
 var imageCreateInfo = new ImageCreateInfo
 {
@@ -80,7 +77,7 @@ var imageCreateInfo = new ImageCreateInfo
     SharingMode = SharingMode.Exclusive
 };
 
-Check(vk.CreateImage(device, &imageCreateInfo, null, out image));
+vk.CreateImage(device, imageCreateInfo, null, out image).Check();
 
 vk.GetImageMemoryRequirements(device, image, out var memoryRequirements);
 
@@ -91,17 +88,17 @@ var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
     Handle = directTextureHandle
 };
 
-var allocInfo = new MemoryAllocateInfo
+var allocateInfo = new MemoryAllocateInfo
 {
     ...
     PNext = &importMemoryInfo
 };
 
-Check(vk.AllocateMemory(device, &allocInfo, null, out var deviceMemory));
-Check(vk.BindImageMemory(device, image, deviceMemory, 0ul));
+vk.AllocateMemory(device, allocateInfo, null, out var deviceMemory).Check();
+vk.BindImageMemory(device, image, deviceMemory, 0ul).Check();
 ```
 
-Now that framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present.
+When framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present.
 
 ```csharp
 context.Get().CopyResource(colorResource.Handle, renderTargetResource.Handle);
