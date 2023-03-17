@@ -34,7 +34,7 @@ _ = swapchain1.GetBuffer(0, out colorTexture);
 > 
 > Width and height was received from WinUI SwapChainPanel element which accepts our swapchain
 
-1. Create "render target" D3D texture in shared mode
+2. Create "render target" D3D texture in shared mode
 
 ```csharp
 var renderTargetDescription = new Texture2DDesc
@@ -46,21 +46,20 @@ var renderTargetDescription = new Texture2DDesc
     MiscFlags = (uint)ResourceMiscFlag.Shared
 };
 
-_ = device.Get().CreateTexture2D(ref renderTargetDescription, null, renderTargetTexture.GetAddressOf());
+_ = device.CreateTexture2D(renderTargetDescription, null, ref renderTargetTexture);
 ```
 
 3. Query it to DXGI resource and get shared handle
 
 ```csharp
-var guid = IDXGIResource.Guid;
-ComPtr<IDXGIResource> resource = default;
-
-_ = renderTargetTexture.Get().QueryInterface(ref guid, (void**)resource.GetAddressOf());
+var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
 
 void* sharedHandle;
-_ = resource.Get().GetSharedHandle(&sharedHandle);
+_ = resource.GetSharedHandle(&sharedHandle);
 
 sharedTextureHandle = (nint)sharedHandle;
+
+_ = resource.Release();
 ```
 
 4. On the vulkan side - create image using shared handle for memory importing, after this create view and framebuffer
@@ -100,9 +99,9 @@ vk.BindImageMemory(device, image, deviceMemory, 0ul).Check();
 When framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present.
 
 ```csharp
-context.Get().CopyResource(colorResource.Handle, renderTargetResource.Handle);
+context.CopyResource(colorResource, renderTargetResource);
 
-_ = swapchain1.Get().Present(0u, (uint)SwapChainFlag.None);
+_ = swapchain1.Present(0u, (uint)SwapChainFlag.None);
 ```
 
 We also need to handle resizing - when it occurs we need to recreate DirectX and Vulkan resources.
