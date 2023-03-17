@@ -21,16 +21,15 @@ var swapchainDesc1 = new SwapChainDesc1
     Width = width,
     Height = height,
     Scaling = Scaling.Stretch,
-    SwapEffect = SwapEffect.FlipSequential,
     BufferUsage = DXGI.UsageRenderTargetOutput
 };
 
-_ = factory2.Get().CreateSwapChainForComposition((IUnknown*)dxgiDevice3.Handle, ref swapchainDesc1, 
-        null, swapchain1.GetAddressOf());
+_ = factory2.CreateSwapChainForComposition(dxgiDevice3, swapchainDesc1, 
+        default(ComPtr<IDXGIOutput>), ref swapchain1);
 
-var guid = ID3D11Texture2D.Guid;
-_ = swapchain1.Get().GetBuffer(0, ref guid, (void**)colorTexture.GetAddressOf());
+_ = swapchain1.GetBuffer(0, out colorTexture);
 ```
+
 > **Note**
 > 
 > Width and height was received from WinUI SwapChainPanel element which accepts our swapchain

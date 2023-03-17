@@ -55,7 +55,7 @@ public sealed partial class MainWindow : Window
         _ = d3d11.CreateDevice(
             default(ComPtr<IDXGIAdapter>),
             D3DDriverType.Hardware, 
-            default,
+            nint.Zero,
             (uint)CreateDeviceFlag.BgraSupport,
             null,
             0u,
@@ -140,9 +140,20 @@ public sealed partial class MainWindow : Window
 
     private unsafe void Draw()
     {
-        context.CopyResource(colorResource.Handle, renderTargetResource.Handle);
+        context.CopyResource(colorResource, renderTargetResource);
 
         _ = swapchain1.Present(0u, (uint)SwapChainFlag.None);
+    }
+
+    private void ReleaseResources()
+    {
+        _ = colorResource.Release();
+        _ = renderTargetResource.Release();
+
+        _ = colorTexture.Release();
+        _ = renderTargetTexture.Release();
+
+        _ = swapchain1.Release();
     }
 
     private void OnSwapchainPanelLoaded(object sender, RoutedEventArgs e)
@@ -175,13 +186,7 @@ public sealed partial class MainWindow : Window
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-        _ = colorResource.Release();
-        _ = renderTargetResource.Release();
-
-        _ = colorTexture.Release();
-        _ = renderTargetTexture.Release();
-
-        _ = swapchain1.Release();
+        ReleaseResources();
 
         CreateResources(width, height);
 
@@ -200,13 +205,7 @@ public sealed partial class MainWindow : Window
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
-        _ = swapchain1.Release();
-
-        _ = colorTexture.Release();
-        _ = renderTargetTexture.Release();
-
-        _ = colorResource.Release();
-        _ = renderTargetResource.Release();
+        ReleaseResources();
 
         _ = factory2.Release();
         _ = adapter.Release();
