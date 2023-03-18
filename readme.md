@@ -1,6 +1,6 @@
 # Overview
 
-This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore_win32.html) extension. 
+This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory_win32.html) extension. 
 
 Example is written naive without any abstractions and mostly follows great [Alexander Overvoorde's vulkan tutorial](https://vulkan-tutorial.com) to create vulkan resources but excludes vulkan swapchain infrastructure and creates framebuffer using shared Direct3D 11 texture.
 
