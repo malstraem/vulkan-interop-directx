@@ -62,7 +62,7 @@ sharedTextureHandle = (nint)sharedHandle;
 _ = resource.Release();
 ```
 
-4. On the vulkan side - create image using shared handle for memory importing, after this create view and framebuffer
+4. On the vulkan side - create image using shared handle for memory import, after this create view and framebuffer
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(

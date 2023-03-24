@@ -15,7 +15,7 @@ static class ResultExtensions
     public static void Check(this Result result)
     {
         if (result is not Result.Success)
-            throw new Exception($"failed to call vulkan function - {result}");
+            throw new Exception($"vulkan call failed - {result}");
     }
 }
 
@@ -23,7 +23,7 @@ public unsafe class VulkanInterop
 {
     private readonly struct VertexPositionColor
     {
-        public VertexPositionColor(in Vector3 position, in Vector3 color)
+        public VertexPositionColor(Vector3 position, Vector3 color)
         {
             Position = position;
             Color = color;
@@ -537,13 +537,7 @@ public unsafe class VulkanInterop
         #region Pick physical device
         uint queueIndex = 0u;
 
-        uint physicalDeviceCount = 0u;
-        vk.EnumeratePhysicalDevices(instance, ref physicalDeviceCount, null).Check();
-
-        var physicalDevices = new Span<PhysicalDevice>(new PhysicalDevice[physicalDeviceCount]);
-        vk.EnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices).Check();
-
-        foreach (var physicalDevice in physicalDevices)
+        foreach (var physicalDevice in vk.GetPhysicalDevices(instance))
         {
             uint proprtyCount = 0u;
             byte layerName = default;
