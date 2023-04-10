@@ -35,11 +35,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.2.230217.4" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.2.230313.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
 
-    <PackageReference Include="Silk.NET.Direct3D11" Version="2.17.0-build3178.0" />
-    <PackageReference Include="Silk.NET.DXGI" Version="2.17.0-build3178.0" />
+    <PackageReference Include="Silk.NET.Direct3D11" Version="2.17.1" />
+    <PackageReference Include="Silk.NET.DXGI" Version="2.17.1" />
 
     <ProjectReference Include="..\source\Interop.Vulkan.csproj" />
 
