@@ -730,7 +730,6 @@ public unsafe class VulkanInterop
         vk.UpdateDescriptorSets(device, 1u, writeDescriptorSet, 0u, null);
         #endregion
 
-        /* Create pipeline layout */
         fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
         {
             var layoutCreateInfo = new PipelineLayoutCreateInfo()

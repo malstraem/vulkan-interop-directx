@@ -96,7 +96,7 @@ vk.AllocateMemory(device, allocateInfo, null, out var deviceMemory).Check();
 vk.BindImageMemory(device, image, deviceMemory, 0ul).Check();
 ```
 
-When framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present.
+When framebuffer is created, we are ready to interop - just render a frame and call DirectX to copy data from "render target" to the texture associated with swapchain and present it.
 
 ```csharp
 context.CopyResource(colorResource, renderTargetResource);
@@ -104,9 +104,9 @@ context.CopyResource(colorResource, renderTargetResource);
 _ = swapchain1.Present(0u, (uint)SwapChainFlag.None);
 ```
 
-We also need to handle resizing - when it occurs we need to recreate DirectX and Vulkan resources.
+We also need to handle resizing - when it occurs we should to recreate DirectX and Vulkan resources.
 
 # Prerequisites
 * .NET 7
 * Windows SDK 10.0.22621
-* Vulkan SDK (if you want compile shaders yourself)
+* 

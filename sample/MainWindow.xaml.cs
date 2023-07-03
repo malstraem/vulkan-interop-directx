@@ -28,7 +28,7 @@ public sealed partial class MainWindow : Window
 
     private readonly VulkanInterop vulkanInterop = new();
 
-    private readonly D3D11 d3d11 = D3D11.GetApi();
+    private readonly D3D11 d3d11 = D3D11.GetApi(null);
 
     private ComPtr<ID3D11Device> device;
     private ComPtr<ID3D11DeviceContext> context;

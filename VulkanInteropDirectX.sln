@@ -7,6 +7,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interop.WinUI3", "sample\In
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interop.Vulkan", "source\Interop.Vulkan.csproj", "{3757AAFE-C718-45BA-89F1-B180AB20FA0D}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_solution", "_solution", "{0D6A86F1-0B28-4599-A312-DBF42932B130}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		license = license
+		readme.md = readme.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
