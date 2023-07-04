@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -12,6 +13,7 @@ namespace Interop.Vulkan;
 
 static class ResultExtensions
 {
+    [DebuggerHidden]
     public static void Check(this Result result)
     {
         if (result is not Result.Success)
@@ -21,6 +23,8 @@ static class ResultExtensions
 
 public unsafe class VulkanInterop
 {
+    private const string interopExtensionName = "VK_KHR_external_memory_win32";
+
     private readonly struct VertexPositionColor
     {
         public VertexPositionColor(Vector3 position, Vector3 color)
@@ -202,7 +206,7 @@ public unsafe class VulkanInterop
 
         foreach (var extensionProperty in extensionProperties)
         {
-            if (Encoding.UTF8.GetString(extensionProperty.ExtensionName, 256).Trim('\0') == "VK_KHR_external_memory_win32")
+            if (Encoding.UTF8.GetString(extensionProperty.ExtensionName, 256).Trim('\0') == interopExtensionName)
                 return true;
         }
 
@@ -226,11 +230,7 @@ public unsafe class VulkanInterop
     {
         fixed (byte* codePtr = code)
         {
-            var createInfo = new ShaderModuleCreateInfo
-            {
-                CodeSize = (nuint)code.Length,
-                PCode = (uint*)codePtr
-            };
+            var createInfo = new ShaderModuleCreateInfo(codeSize: (nuint)code.Length, pCode: (uint*)codePtr);
 
             vk.CreateShaderModule(device, createInfo, null, out var shaderModule).Check();
 
@@ -240,22 +240,17 @@ public unsafe class VulkanInterop
 
     private void CreateBuffer(BufferUsageFlags bufferUsage, MemoryPropertyFlags memoryProperties, out Buffer buffer, out DeviceMemory deviceMemory, ulong size)
     {
-        var bufferCreateInfo = new BufferCreateInfo
-        {
-            SharingMode = SharingMode.Exclusive,
-            Usage = bufferUsage,
-            Size = size
-        };
+        var bufferCreateInfo = new BufferCreateInfo(sharingMode: SharingMode.Exclusive, usage: bufferUsage, size: size);
 
         vk.CreateBuffer(device, bufferCreateInfo, null, out buffer).Check();
 
         vk.GetBufferMemoryRequirements(device, buffer, out var memoryRequirements);
 
         var memoryAllocateInfo = new MemoryAllocateInfo
-        {
-            AllocationSize = memoryRequirements.Size,
-            MemoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.MemoryTypeBits, memoryProperties)
-        };
+        (
+            allocationSize: memoryRequirements.Size, 
+            memoryTypeIndex: GetMemoryTypeIndex(memoryRequirements.MemoryTypeBits, memoryProperties)
+        );
 
         vk.AllocateMemory(device, memoryAllocateInfo, null, out deviceMemory).Check();
         vk.BindBufferMemory(device, buffer, deviceMemory, 0ul).Check();
@@ -267,41 +262,31 @@ public unsafe class VulkanInterop
         var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
 
         var imageCreateInfo = new ImageCreateInfo
-        {
-            PNext = &externalMemoryImageInfo,
-            ImageType = ImageType.Type2D,
-            Format = Format.B8G8R8A8Unorm,
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = ImageUsageFlags.ColorAttachmentBit,
-            SharingMode = SharingMode.Exclusive,
-            MipLevels = 1u,
-            ArrayLayers = 1u,
-            Extent = new()
-            {
-                Width = width, 
-                Height = height,
-                Depth = 1u
-            }
-        };
+        (
+            pNext: &externalMemoryImageInfo,
+            imageType: ImageType.Type2D,
+            format: Format.B8G8R8A8Unorm,
+            samples: SampleCountFlags.Count1Bit,
+            tiling: ImageTiling.Optimal,
+            usage: ImageUsageFlags.ColorAttachmentBit,
+            sharingMode: SharingMode.Exclusive,
+            mipLevels: 1u,
+            arrayLayers: 1u,
+            extent: new Extent3D(width: width, height: height, depth: 1u)
+        );
 
         vk.CreateImage(device, imageCreateInfo, null, out image).Check();
 
         vk.GetImageMemoryRequirements(device, image, out var memoryRequirements);
 
-        var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
-        {
-            SType = StructureType.ImportMemoryWin32HandleInfoKhr,
-            HandleType = ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
-            Handle = directTextureHandle
-        };
+        var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR(handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit, handle: directTextureHandle);
 
         var allocateInfo = new MemoryAllocateInfo
-        {
-            PNext = &importMemoryInfo,
-            AllocationSize = memoryRequirements.Size,
-            MemoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
+        (
+            pNext: &importMemoryInfo,
+            allocationSize: memoryRequirements.Size,
+            memoryTypeIndex: GetMemoryTypeIndex(memoryRequirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+        );
 
         vk.AllocateMemory(device, allocateInfo, null, out var deviceMemory).Check();
         vk.BindImageMemory(device, image, deviceMemory, 0ul).Check();
@@ -310,12 +295,7 @@ public unsafe class VulkanInterop
         Console.WriteLine($"Vulkan image created: 0x{image.Handle:X16}\n");
         #endregion
 
-        var imageViewCreateInfo = new ImageViewCreateInfo
-        {
-            ViewType = ImageViewType.Type2D,
-            Format = Format.B8G8R8A8Unorm,
-            Image = image
-        };
+        var imageViewCreateInfo = new ImageViewCreateInfo(viewType: ImageViewType.Type2D, format: Format.B8G8R8A8Unorm, image: image);
 
         vk.CreateImageView(device, imageViewCreateInfo, null, out imageView).Check();
     }
@@ -323,24 +303,20 @@ public unsafe class VulkanInterop
     private void CreatePipeline()
     {
         var vertexShaderStageInfo = new PipelineShaderStageCreateInfo
-        {
-            Stage = ShaderStageFlags.VertexBit,
-            Module = vertexShaderModule,
-            PName = (byte*)SilkMarshal.StringToPtr("main")
-        };
+        (
+            stage: ShaderStageFlags.VertexBit,
+            module: vertexShaderModule,
+            pName: (byte*)SilkMarshal.StringToPtr("main")
+        );
 
         var fragmentShaderStageInfo = new PipelineShaderStageCreateInfo
-        {
-            Stage = ShaderStageFlags.FragmentBit,
-            Module = fragmentShaderModule,
-            PName = (byte*)SilkMarshal.StringToPtr("main")
-        };
+        (
+            stage: ShaderStageFlags.FragmentBit,
+            module: fragmentShaderModule,
+            pName: (byte*)SilkMarshal.StringToPtr("main")
+        );
 
-        var shaderStages = stackalloc[]
-        {
-            vertexShaderStageInfo,
-            fragmentShaderStageInfo
-        };
+        var shaderStages = stackalloc[] { vertexShaderStageInfo, fragmentShaderStageInfo };
 
         var bindingDescription = VertexPositionColor.GetBindingDescription();
         var attributeDescriptions = VertexPositionColor.GetAttributeDescriptions();
@@ -348,12 +324,12 @@ public unsafe class VulkanInterop
         fixed (VertexInputAttributeDescription* attributeDescriptionsPtr = attributeDescriptions)
         {
             var vertexInputStateCreateInfo = new PipelineVertexInputStateCreateInfo
-            {
-                VertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
-                PVertexAttributeDescriptions = attributeDescriptionsPtr,
-                PVertexBindingDescriptions = &bindingDescription,
-                VertexBindingDescriptionCount = 1u
-            };
+            (
+                vertexAttributeDescriptionCount: (uint)attributeDescriptions.Length,
+                pVertexAttributeDescriptions: attributeDescriptionsPtr,
+                pVertexBindingDescriptions: &bindingDescription,
+                vertexBindingDescriptionCount: 1u
+            );
 
             var inputAssemblyStateCreateInfo = new PipelineInputAssemblyStateCreateInfo(topology: PrimitiveTopology.TriangleList);
 
@@ -374,20 +350,20 @@ public unsafe class VulkanInterop
             };
 
             var viewportStateCreateInfo = new PipelineViewportStateCreateInfo
-            {
-                PViewports = &viewport,
-                ViewportCount = 1u,
-                PScissors = &scissorRect,
-                ScissorCount = 1u
-            };
+            (
+                pViewports: &viewport,
+                viewportCount: 1u,
+                pScissors: &scissorRect,
+                scissorCount: 1u
+            );
 
             var rasterizationStateCreateInfo = new PipelineRasterizationStateCreateInfo
-            {
-                PolygonMode = PolygonMode.Fill,
-                CullMode = CullModeFlags.BackBit,
-                FrontFace = FrontFace.CounterClockwise,
-                LineWidth = 1f
-            };
+            (
+                polygonMode: PolygonMode.Fill,
+                cullMode: CullModeFlags.BackBit,
+                frontFace: FrontFace.CounterClockwise,
+                lineWidth: 1f
+            );
 
             var multisampleStateCreateInfo = new PipelineMultisampleStateCreateInfo(rasterizationSamples: SampleCountFlags.Count1Bit);
 
@@ -399,26 +375,21 @@ public unsafe class VulkanInterop
                                | ColorComponentFlags.ABit
             };
 
-            var colorBlendStateCreateInfo = new PipelineColorBlendStateCreateInfo
-            {
-                LogicOp = LogicOp.Copy,
-                PAttachments = &colorBlendAttachmentState,
-                AttachmentCount = 1u
-            };
+            var colorBlendStateCreateInfo = new PipelineColorBlendStateCreateInfo(logicOp: LogicOp.Copy, pAttachments: &colorBlendAttachmentState, attachmentCount: 1u);
 
             var pipelineCreateInfo = new GraphicsPipelineCreateInfo
-            {
-                Layout = pipelineLayout,
-                RenderPass = renderPass,
-                PVertexInputState = &vertexInputStateCreateInfo,
-                PInputAssemblyState = &inputAssemblyStateCreateInfo,
-                PViewportState = &viewportStateCreateInfo,
-                PRasterizationState = &rasterizationStateCreateInfo,
-                PMultisampleState = &multisampleStateCreateInfo,
-                PColorBlendState = &colorBlendStateCreateInfo,
-                PStages = shaderStages,
-                StageCount = 2u
-            };
+            (
+                layout: pipelineLayout,
+                renderPass: renderPass,
+                pVertexInputState: &vertexInputStateCreateInfo,
+                pInputAssemblyState: &inputAssemblyStateCreateInfo,
+                pViewportState: &viewportStateCreateInfo,
+                pRasterizationState: &rasterizationStateCreateInfo,
+                pMultisampleState: &multisampleStateCreateInfo,
+                pColorBlendState: &colorBlendStateCreateInfo,
+                pStages: shaderStages,
+                stageCount: 2u
+            );
 
             vk.CreateGraphicsPipelines(device, default, 1u, pipelineCreateInfo, null, out pipeline).Check();
         }
@@ -432,14 +403,14 @@ public unsafe class VulkanInterop
         fixed (ImageView* imageViewPtr = &imageView)
         {
             var framebufferCreateInfo = new FramebufferCreateInfo
-            {
-                RenderPass = renderPass,
-                Width = width,
-                Height = height,
-                PAttachments = imageViewPtr,
-                AttachmentCount = 1u,
-                Layers = 1u
-            };
+            (
+                renderPass: renderPass,
+                width: width,
+                height: height,
+                pAttachments: imageViewPtr,
+                attachmentCount: 1u,
+                layers: 1u
+            );
 
             vk.CreateFramebuffer(device, framebufferCreateInfo, null, out framebuffer).Check();
         }
@@ -447,12 +418,7 @@ public unsafe class VulkanInterop
 
     private void CreateCommandBuffer()
     {
-        var commandBufferAllocateInfo = new CommandBufferAllocateInfo
-        {
-            Level = CommandBufferLevel.Primary,
-            CommandPool = commandPool,
-            CommandBufferCount = 1u
-        };
+        var commandBufferAllocateInfo = new CommandBufferAllocateInfo(level: CommandBufferLevel.Primary, commandPool: commandPool, commandBufferCount: 1u);
 
         vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out commandBuffer).Check();
 
@@ -461,17 +427,13 @@ public unsafe class VulkanInterop
         var clearColor = new ClearValue(new ClearColorValue(0f, 0f, 0f, 1f));
 
         var renderPassBeginInfo = new RenderPassBeginInfo
-        {
-            RenderPass = renderPass,
-            Framebuffer = framebuffer,
-            PClearValues = &clearColor,
-            ClearValueCount = 1u,
-            RenderArea =
-            {
-                Offset = { X = 0, Y = 0 },
-                Extent = new(width, height)
-            }
-        };
+        (
+            renderPass: renderPass,
+            framebuffer: framebuffer,
+            pClearValues: &clearColor,
+            clearValueCount: 1u,
+            renderArea: new(offset: new(0, 0), extent: new(width, height))
+        );
 
         vk.CmdBeginRenderPass(commandBuffer, renderPassBeginInfo, SubpassContents.Inline);
 
@@ -509,13 +471,9 @@ public unsafe class VulkanInterop
     {
         fixed (CommandBuffer* commandBufferPtr = &commandBuffer)
         {
-            var submitInfo = new SubmitInfo
-            {
-                PCommandBuffers = commandBufferPtr,
-                CommandBufferCount = 1u
-            };
+            var submitInfo = new SubmitInfo(pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
 
-            vk.QueueSubmit(queue, 1u, submitInfo, fence).Check();
+            vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
         }
     }
 
@@ -525,7 +483,7 @@ public unsafe class VulkanInterop
         this.height = height;
 
         #region Create instance
-        var appInfo = new ApplicationInfo(apiVersion: Vk.Version11);
+        var appInfo = new ApplicationInfo(apiVersion: Vk.Version10);
         var createInfo = new InstanceCreateInfo(pApplicationInfo: &appInfo);
 
         vk.CreateInstance(createInfo, null, out instance).Check();
@@ -534,17 +492,17 @@ public unsafe class VulkanInterop
         Console.WriteLine($"Vulkan instance created: 0x{instance.Handle:X16}");
         #endregion
 
-        #region Pick physical device
         uint queueIndex = 0u;
 
+        #region Pick physical device
         foreach (var physicalDevice in vk.GetPhysicalDevices(instance))
         {
-            uint proprtyCount = 0u;
+            uint propertyCount = 0u;
             byte layerName = default;
-            vk.EnumerateDeviceExtensionProperties(physicalDevice, layerName, ref proprtyCount, null).Check();
+            vk.EnumerateDeviceExtensionProperties(physicalDevice, layerName, ref propertyCount, null).Check();
 
-            var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[proprtyCount]);
-            vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &proprtyCount, extensionProperties).Check();
+            var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[propertyCount]);
+            vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &propertyCount, extensionProperties).Check();
 
             if (CheckGraphicsQueue(physicalDevice, ref queueIndex) && CheckExternalMemoryExtension(physicalDevice))
             {
@@ -558,24 +516,28 @@ public unsafe class VulkanInterop
 
         vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
 
-        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having VK_KHR_external_memory_win32 extension picked: 0x{physicalDevice.Handle:X16}");
+        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension picked: 0x{physicalDevice.Handle:X16}");
         #endregion
 
         #region Create device
         float queuePriority = 1f;
 
         var deviceQueueCreateInfo = new DeviceQueueCreateInfo
-        {
-            QueueFamilyIndex = queueIndex,
-            PQueuePriorities = &queuePriority,
-            QueueCount = 1u
-        };
+        (
+            queueFamilyIndex: queueIndex,
+            pQueuePriorities: &queuePriority,
+            queueCount: 1u
+        );
+
+        var extensions = new string[] { interopExtensionName };
 
         var deviceCreateInfo = new DeviceCreateInfo
-        {
-            PQueueCreateInfos = &deviceQueueCreateInfo,
-            QueueCreateInfoCount = 1u
-        };
+        (
+            pQueueCreateInfos: &deviceQueueCreateInfo,
+            queueCreateInfoCount: 1u,
+            ppEnabledExtensionNames: (byte**)SilkMarshal.StringArrayToPtr(extensions),
+            enabledExtensionCount: 1u
+        );
 
         vk.CreateDevice(physicalDevice, deviceCreateInfo, null, out device).Check();
 
@@ -630,14 +592,14 @@ public unsafe class VulkanInterop
         };
 
         var renderPassCreateInfo = new RenderPassCreateInfo
-        {
-            PAttachments = &colorAttachmentDescription,
-            AttachmentCount = 1u,
-            PSubpasses = &subpassDescription,
-            SubpassCount = 1u,
-            PDependencies = &subpassDependency,
-            DependencyCount = 1u
-        };
+        (
+            pAttachments: &colorAttachmentDescription,
+            attachmentCount: 1u,
+            pSubpasses: &subpassDescription,
+            subpassCount: 1u,
+            pDependencies: &subpassDependency,
+            dependencyCount: 1u
+        );
 
         vk.CreateRenderPass(device, renderPassCreateInfo, null, out renderPass).Check();
         #endregion
@@ -670,12 +632,7 @@ public unsafe class VulkanInterop
             DescriptorCount = 1u
         };
 
-        var descriptorPoolCreateInfo = new DescriptorPoolCreateInfo
-        {
-            PPoolSizes = &descriptorPoolSize,
-            PoolSizeCount = 1u,
-            MaxSets = 1u
-        };
+        var descriptorPoolCreateInfo = new DescriptorPoolCreateInfo(pPoolSizes: &descriptorPoolSize, poolSizeCount: 1u, maxSets: 1u);
 
         vk.CreateDescriptorPool(device, descriptorPoolCreateInfo, null, out descriptorPool).Check();
         #endregion
@@ -689,11 +646,7 @@ public unsafe class VulkanInterop
             DescriptorCount = 1u
         };
 
-        var descriptorSetLayoutCreateInfo = new DescriptorSetLayoutCreateInfo
-        {
-            PBindings = &descriptorSetLayoutBinding,
-            BindingCount = 1u
-        };
+        var descriptorSetLayoutCreateInfo = new DescriptorSetLayoutCreateInfo(pBindings: &descriptorSetLayoutBinding, bindingCount: 1u);
 
         vk.CreateDescriptorSetLayout(device, descriptorSetLayoutCreateInfo, null, out descriptorSetLayout).Check();
         #endregion
@@ -701,12 +654,7 @@ public unsafe class VulkanInterop
         #region Create descriptor set
         fixed (DescriptorSetLayout* setLayoutPtr = &descriptorSetLayout)
         {
-            var descriptorSetAllocateInfo = new DescriptorSetAllocateInfo
-            {
-                DescriptorPool = descriptorPool,
-                PSetLayouts = setLayoutPtr,
-                DescriptorSetCount = 1u
-            };
+            var descriptorSetAllocateInfo = new DescriptorSetAllocateInfo(descriptorPool: descriptorPool, pSetLayouts: setLayoutPtr, descriptorSetCount: 1u);
 
             vk.AllocateDescriptorSets(device, descriptorSetAllocateInfo, out descriptorSet).Check();
         }
@@ -718,35 +666,28 @@ public unsafe class VulkanInterop
         };
 
         var writeDescriptorSet = new WriteDescriptorSet
-        {
-            DstSet = descriptorSet,
-            DescriptorType = DescriptorType.UniformBuffer,
-            PBufferInfo = &descriptorBufferInfo,
-            DstBinding = 0u,
-            DstArrayElement = 0u,
-            DescriptorCount = 1u
-        };
+        (
+            dstSet: descriptorSet,
+            descriptorType: DescriptorType.UniformBuffer,
+            pBufferInfo: &descriptorBufferInfo,
+            dstBinding: 0u,
+            dstArrayElement: 0u,
+            descriptorCount: 1u
+        );
 
         vk.UpdateDescriptorSets(device, 1u, writeDescriptorSet, 0u, null);
         #endregion
 
         fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
         {
-            var layoutCreateInfo = new PipelineLayoutCreateInfo()
-            {
-                PSetLayouts = descriptorSetLayoutPtr,
-                SetLayoutCount = 1u
-            };
+            var layoutCreateInfo = new PipelineLayoutCreateInfo(pSetLayouts: descriptorSetLayoutPtr, setLayoutCount: 1u);
 
             vk.CreatePipelineLayout(device, layoutCreateInfo, null, out pipelineLayout).Check();
         }
 
-        CreatePipeline();
-
         CreateImageView(directTextureHandle);
-
+        CreatePipeline();
         CreateFramebuffer();
-
         CreateCommandBuffer();
     }
 
@@ -772,11 +713,8 @@ public unsafe class VulkanInterop
             vk.FreeCommandBuffers(device, commandPool, 1u, commandBuffersPtr);
 
         CreateImageView(directTextureHandle);
-
         CreatePipeline();
-
         CreateFramebuffer();
-
         CreateCommandBuffer();
     }
 

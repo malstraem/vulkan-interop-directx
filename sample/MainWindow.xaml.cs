@@ -34,12 +34,10 @@ public sealed partial class MainWindow : Window
     private ComPtr<ID3D11DeviceContext> context;
 
     private ComPtr<IDXGIAdapter> adapter;
+    private ComPtr<IDXGIDevice3> dxgiDevice;
+    private ComPtr<IDXGIFactory2> factory;
 
-    private ComPtr<IDXGIDevice3> dxgiDevice3;
-
-    private ComPtr<IDXGIFactory2> factory2;
-
-    private ComPtr<IDXGISwapChain1> swapchain1;
+    private ComPtr<IDXGISwapChain1> swapchain;
 
     private ComPtr<ID3D11Texture2D> colorTexture;
     private ComPtr<ID3D11Texture2D> renderTargetTexture;
@@ -70,11 +68,11 @@ public sealed partial class MainWindow : Window
         #endregion
 
         #region Get DXGI device, adapter and factory
-        dxgiDevice3 = device.QueryInterface<IDXGIDevice3>();
+        dxgiDevice = device.QueryInterface<IDXGIDevice3>();
 
-        _ = dxgiDevice3.GetAdapter(ref adapter);
+        _ = dxgiDevice.GetAdapter(ref adapter);
 
-        factory2 = adapter.GetParent<IDXGIFactory2>();
+        factory = adapter.GetParent<IDXGIFactory2>();
         #endregion
     }
 
@@ -94,9 +92,9 @@ public sealed partial class MainWindow : Window
             BufferCount = 2u
         };
 
-        _ = factory2.CreateSwapChainForComposition(dxgiDevice3, swapchainDesc1, default(ComPtr<IDXGIOutput>), ref swapchain1);
+        _ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDesc1, default(ComPtr<IDXGIOutput>), ref swapchain);
 
-        _ = swapchain1.GetBuffer(0, out colorTexture);
+        _ = swapchain.GetBuffer(0, out colorTexture);
         #endregion
 
         #region Create render target texture
@@ -132,17 +130,13 @@ public sealed partial class MainWindow : Window
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
     }
 
-    private void SetSwapchain()
-    {
-        var nativePanel = swapchainPanel.As<ISwapChainPanelNative>();
-        _ = nativePanel.SetSwapChain(swapchain1);
-    }
+    private void SetSwapchain() => swapchainPanel.As<ISwapChainPanelNative>().SetSwapChain(swapchain);
 
-    private unsafe void Draw()
+    private unsafe void OnRendering(object? sender, object e)
     {
+        vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
         context.CopyResource(colorResource, renderTargetResource);
-
-        _ = swapchain1.Present(0u, (uint)SwapChainFlag.None);
+        _ = swapchain.Present(0u, (uint)SwapChainFlag.None);
     }
 
     private void ReleaseResources()
@@ -153,7 +147,7 @@ public sealed partial class MainWindow : Window
         _ = colorTexture.Release();
         _ = renderTargetTexture.Release();
 
-        _ = swapchain1.Release();
+        _ = swapchain.Release();
     }
 
     private void OnSwapchainPanelLoaded(object sender, RoutedEventArgs e)
@@ -171,11 +165,7 @@ public sealed partial class MainWindow : Window
 
         swapchainPanel.SizeChanged += OnSwapchainPanelSizeChanged;
 
-        CompositionTarget.Rendering += (s, e) =>
-        {
-            vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
-            Draw();
-        };
+        CompositionTarget.Rendering += OnRendering;
     }
 
     private void OnSwapchainPanelSizeChanged(object sender, SizeChangedEventArgs e)
@@ -197,19 +187,19 @@ public sealed partial class MainWindow : Window
 
     private void OnSwitchToggled(object sender, RoutedEventArgs e)
     {
-        if (((ToggleSwitch)sender).IsOn)
-            stopwatch.Start();
-        else
-            stopwatch.Stop();
+        Action action = ((ToggleSwitch)sender).IsOn ? stopwatch.Start : stopwatch.Stop;
+        action();
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
+        CompositionTarget.Rendering -= OnRendering;
+
         ReleaseResources();
 
-        _ = factory2.Release();
+        _ = factory.Release();
         _ = adapter.Release();
-        _ = dxgiDevice3.Release();
+        _ = dxgiDevice.Release();
         _ = context.Release();
         _ = device.Release();
 
