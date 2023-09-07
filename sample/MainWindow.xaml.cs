@@ -5,6 +5,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
+using Windows.Storage;
+using Windows.ApplicationModel;
+
 using WinRT;
 
 using Silk.NET.Core.Native;
@@ -79,7 +82,7 @@ public sealed partial class MainWindow : Window
     private unsafe void CreateResources(uint width, uint height)
     {
         #region Create swapchain and get texture
-        var swapchainDesc1 = new SwapChainDesc1
+        var swapchainDescription = new SwapChainDesc1
         {
             AlphaMode = AlphaMode.Unspecified,
             Format = Format.FormatB8G8R8A8Unorm,
@@ -89,10 +92,10 @@ public sealed partial class MainWindow : Window
             SwapEffect = SwapEffect.FlipSequential,
             SampleDesc = new SampleDesc(1u, 0u),
             BufferUsage = DXGI.UsageRenderTargetOutput,
-            BufferCount = 2u
+            BufferCount = 2u,
         };
 
-        _ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDesc1, default(ComPtr<IDXGIOutput>), ref swapchain);
+        _ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDescription, default(ComPtr<IDXGIOutput>), ref swapchain);
 
         _ = swapchain.GetBuffer(0, out colorTexture);
         #endregion
@@ -141,16 +144,16 @@ public sealed partial class MainWindow : Window
 
     private void ReleaseResources()
     {
-        _ = colorResource.Release();
-        _ = renderTargetResource.Release();
+        colorResource.Dispose();
+        renderTargetResource.Dispose();
 
-        _ = colorTexture.Release();
-        _ = renderTargetTexture.Release();
+        colorTexture.Dispose();
+        renderTargetTexture.Dispose();
 
-        _ = swapchain.Release();
+        swapchain.Dispose();
     }
 
-    private void OnSwapchainPanelLoaded(object sender, RoutedEventArgs e)
+    private async void OnSwapchainPanelLoaded(object sender, RoutedEventArgs e)
     {
         uint width = (uint)swapchainPanel.ActualWidth;
         uint height = (uint)swapchainPanel.ActualHeight;
@@ -161,7 +164,13 @@ public sealed partial class MainWindow : Window
 
         SetSwapchain();
 
-        vulkanInterop.Initialize(sharedTextureHandle, width, height);
+        var folder = await StorageFolder.GetFolderFromPathAsync(Package.Current.InstalledPath);
+        var assetfolder = await folder.GetFolderAsync("assets");
+        var helmetFile = await assetfolder.GetFileAsync("DamagedHelmet.glb");
+
+        using var stream = await helmetFile.OpenStreamForReadAsync();
+
+        vulkanInterop.Initialize(sharedTextureHandle, width, height, stream);
 
         swapchainPanel.SizeChanged += OnSwapchainPanelSizeChanged;
 
@@ -197,11 +206,11 @@ public sealed partial class MainWindow : Window
 
         ReleaseResources();
 
-        _ = factory.Release();
-        _ = adapter.Release();
-        _ = dxgiDevice.Release();
-        _ = context.Release();
-        _ = device.Release();
+        factory.Dispose();
+        adapter.Dispose();
+        dxgiDevice.Dispose();
+        context.Dispose();
+        device.Dispose();
 
         vulkanInterop.Clear();
     }

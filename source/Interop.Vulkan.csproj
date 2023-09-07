@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
-
     <Platforms>x64</Platforms>
+    <TargetFramework>net7.0</TargetFramework>
 
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,6 +15,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0030" />
+
     <PackageReference Include="Silk.NET.Vulkan" Version="2.17.1" />
     <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.17.1" />
   </ItemGroup>

@@ -4,10 +4,9 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  
-  Closed="OnWindowClosed"
-  
-  mc:Ignorable="d">
+  mc:Ignorable="d"
+
+  Closed="OnWindowClosed">
 
   <Grid>
     <Rectangle Name="titleBarRectangle" Height="25" Fill="Transparent"
@@ -15,8 +14,21 @@
 
     <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
-    <ToggleSwitch OffContent="Stopped" OnContent="Rotating" Toggled="OnSwitchToggled" 
-                  VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="2*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <Slider Minimum="1" Maximum="20" 
+                VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
+                Value="{x:Bind vulkanInterop.RotationSpeed, Mode=TwoWay}"/>
+
+        <ToggleSwitch Margin="50,0,0,0" OffContent="Stopped" OnContent="Rotating"
+                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                      Toggled="OnSwitchToggled"/>
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>
-  
