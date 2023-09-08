@@ -2,36 +2,38 @@
 
 This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory_win32.html) extension. 
 
-Example is written naive without any abstractions and mostly follows great [Alexander Overvoorde's vulkan tutorial](https://vulkan-tutorial.com) to create vulkan resources but excludes vulkan swapchain infrastructure and creates framebuffer using shared Direct3D 11 texture.
+The example is written naively, step by step (see `VulkanInterop.Initialize`), and basically follows great [Alexander Overvoorde's tutorial](https://vulkan-tutorial.com) for creating resources, but excludes swapchain infrastructure and creates a framebuffer using a shared Direct3D 11 texture. Whether you are using your own or third party abstractions - it should be easy to adapt the code for use.
 
-[Silk.NET](https://github.com/dotnet/Silk.NET) bindings are used for DirectX and Vulkan calling.
+[Silk.NET](https://github.com/dotnet/Silk.NET) - bindings used for DirectX and Vulkan calls.
 
-https://user-images.githubusercontent.com/59914970/224508276-392b1869-33c4-40c0-a3f8-0d9731c06f4c.mp4
+[Damaged Helmet](https://sketchfab.com/3d-models/battle-damaged-sci-fi-helmet-pbr-b81008d513954189a063ff901f7abfe4) - model is used as an example. [SharpGLTF](https://github.com/vpenades/SharpGLTF) - loader used to read the model.
+
+https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378a-4d47-a0ee-46e75faabb58
 
 # Interop process
 
 We need to
 
-1. Create DXGI swapchain and get texture from it
+1. Create DXGI swapchain and get texture from it.
 
 ```csharp
-var swapchainDesc1 = new SwapChainDesc1
+var swapchainDescription = new SwapChainDesc1
 {
     ...
     Width = width,
     Height = height,
-    Scaling = Scaling.Stretch,
+    SwapEffect = SwapEffect.FlipSequential,
     BufferUsage = DXGI.UsageRenderTargetOutput
 };
 
 _ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDesc1, default(ComPtr<IDXGIOutput>), ref swapchain);
 
-_ = swapchain.GetBuffer(0, out colorTexture);
+colorTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
 ```
 
 > **Width and height was received from WinUI SwapChainPanel element which accepts our swapchain**
 
-2. Create "render target" D3D texture in shared mode
+2. Create "render target" D3D texture in shared mode.
 
 ```csharp
 var renderTargetDescription = new Texture2DDesc
@@ -46,7 +48,7 @@ var renderTargetDescription = new Texture2DDesc
 _ = device.CreateTexture2D(renderTargetDescription, null, ref renderTargetTexture);
 ```
 
-3. Query it to DXGI resource and get shared handle
+3. Query it to DXGI resource and get shared handle.
 
 ```csharp
 var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
@@ -56,46 +58,43 @@ _ = resource.GetSharedHandle(&sharedHandle);
 
 sharedTextureHandle = (nint)sharedHandle;
 
-_ = resource.Release();
+resource.Dispose();
 ```
 
-4. On the vulkan side - create image using shared handle for memory import, after this create view and framebuffer
+4. On the Vulkan side - create an image using a shared handle for memory import, then create a view and a framebuffer, see `VulkanInterop.CreateImageViews`.
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
 
-var imageCreateInfo = new ImageCreateInfo
+var imageInfo = new ImageCreateInfo
 (
     ...
-    pNext: &externalMemoryImageInfo,
-    sharingMode: SharingMode.Exclusive
+    format: Format.B8G8R8A8Unorm,
+    usage: ImageUsageFlags.ColorAttachmentBit,
+    pNext: &externalMemoryImageInfo
 );
-
-vk.CreateImage(device, imageCreateInfo, null, out image).Check();
-
-vk.GetImageMemoryRequirements(device, image, out var memoryRequirements);
 
 var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR(handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit, handle: directTextureHandle);
+var memoryInfo = new MemoryAllocateInfo(pNext: &importMemoryInfo);
 
-var allocateInfo = new MemoryAllocateInfo
-(
-    ...
-    pNext: &importMemoryInfo
-);
+vk.CreateImage(device, imageInfo, null, out directImage).Check();
 
-vk.AllocateMemory(device, allocateInfo, null, out var deviceMemory).Check();
-vk.BindImageMemory(device, image, deviceMemory, 0ul).Check();
+vk.AllocateMemory(device, memoryInfo, null, out directImageMemory).Check();
+vk.BindImageMemory(device, directImage, directImageMemory, 0ul).Check();
 ```
 
-When framebuffer is created, we are ready to interop - just render a frame than call DirectX to copy data from "render target" to the texture associated with swapchain and present it.
+5. Once the framebuffer is created, we are ready to interop - we simply render the frame and then call DirectX to copy the data from the "render target" to the texture associated with the swapchain and present it.
 
 ```csharp
 context.CopyResource(colorResource, renderTargetResource);
 _ = swapchain.Present(0u, (uint)SwapChainFlag.None);
 ```
 
-We also need to handle resizing - when it occurs we should to recreate DirectX and Vulkan resources.
+We also need to handle resizing - when it occurs we should recreate DirectX and Vulkan resources.
 
-# Prerequisites
+# Prerequisites and build
+
 * .NET 7
-* Windows SDK 10.0.22621
+* [Windows SDK 10.0.22621](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
+
+The example is `dotnet build` ready.
