@@ -8,11 +8,15 @@
 
   Closed="OnWindowClosed">
 
+  <Window.SystemBackdrop>
+    <MicaBackdrop Kind="BaseAlt"/>
+  </Window.SystemBackdrop>
+
   <Grid>
     <Rectangle Name="titleBarRectangle" Height="25" Fill="Transparent"
                HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
 
-    <SwapChainPanel Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
+    <SwapChainPanel Margin="0" Name="swapchainPanel" Loaded="OnSwapchainPanelLoaded"/>
 
     <Grid>
       <Grid.RowDefinitions>

@@ -97,16 +97,14 @@ public sealed partial class MainWindow : Window
 
         _ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDescription, default(ComPtr<IDXGIOutput>), ref swapchain);
 
-        _ = swapchain.GetBuffer(0, out colorTexture);
+        colorTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
         #endregion
 
         #region Create render target texture
         var renderTargetDescription = new Texture2DDesc
         {
-            CPUAccessFlags = (uint)CpuAccessFlag.None,
             Width = width,
             Height = height,
-            Usage = Usage.Default,
             Format = Format.FormatB8G8R8A8Unorm,
             BindFlags = (uint)BindFlag.RenderTarget,
             MiscFlags = (uint)ResourceMiscFlag.Shared,
@@ -124,7 +122,7 @@ public sealed partial class MainWindow : Window
 
         sharedTextureHandle = (nint)sharedHandle;
 
-        _ = resource.Release();
+        resource.Dispose();
 
         Console.WriteLine($"Shared texture created: 0x{sharedTextureHandle:X16}");
         #endregion
