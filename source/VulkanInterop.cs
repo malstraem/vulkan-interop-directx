@@ -778,6 +778,7 @@ public unsafe class VulkanInterop
             var submitInfo = new SubmitInfo(pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
 
             vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
+            vk.QueueWaitIdle(queue).Check();
         }
     }
 
