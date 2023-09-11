@@ -26,7 +26,7 @@ var swapchainDescription = new SwapChainDesc1
     BufferUsage = DXGI.UsageRenderTargetOutput
 };
 
-_ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDesc1, default(ComPtr<IDXGIOutput>), ref swapchain);
+_ = factory.CreateSwapChainForComposition(dxgiDevice, swapchainDescription, default(ComPtr<IDXGIOutput>), ref swapchain);
 
 colorTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
 ```
