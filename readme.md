@@ -6,7 +6,7 @@ The example is written naively, step by step (see `VulkanInterop.Initialize`), a
 
 [Silk.NET](https://github.com/dotnet/Silk.NET) - bindings used for DirectX and Vulkan calls.
 
-[Damaged Helmet](https://sketchfab.com/3d-models/battle-damaged-sci-fi-helmet-pbr-b81008d513954189a063ff901f7abfe4) - model is used as an example. [SharpGLTF](https://github.com/vpenades/SharpGLTF) - loader used to read the model.
+[Damaged Helmet](https://sketchfab.com/3d-models/battle-damaged-sci-fi-helmet-pbr-b81008d513954189a063ff901f7abfe4) - model used as an example. [SharpGLTF](https://github.com/vpenades/SharpGLTF) - loader used to read the model.
 
 https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378a-4d47-a0ee-46e75faabb58
 
@@ -14,7 +14,7 @@ https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378
 
 We need to
 
-1. Create DXGI swapchain and get texture from it.
+1. Create DXGI swapchain and get texture.
 
 ```csharp
 var swapchainDescription = new SwapChainDesc1
@@ -61,7 +61,7 @@ sharedTextureHandle = (nint)sharedHandle;
 resource.Dispose();
 ```
 
-4. On the Vulkan side - create an image using a shared handle for memory import, then create a view and a framebuffer, see `VulkanInterop.CreateImageViews`.
+4. On the Vulkan side - create an image using a shared handle for memory import, then create a view and a framebuffer. See `VulkanInterop.CreateImageViews`.
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
@@ -83,7 +83,7 @@ vk.AllocateMemory(device, memoryInfo, null, out directImageMemory).Check();
 vk.BindImageMemory(device, directImage, directImageMemory, 0ul).Check();
 ```
 
-5. Once the framebuffer is created, we are ready to interop - we simply render the frame and then call DirectX to copy the data from the "render target" to the texture associated with the swapchain and present it.
+5. Once the framebuffer is created, we are ready to interop - just render a frame and then call DirectX to copy data from "render target" to the texture associated with the swapchain and present it.
 
 ```csharp
 context.CopyResource(colorResource, renderTargetResource);
