@@ -1,8 +1,10 @@
 # Overview
 
-This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory_win32.html) extension. 
+This repo demonstrates interop between Vulkan and DirectX via embedding the former into WinUI 3 using [VK_KHR_external_memory_win32](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory_win32.html) extension. It's basically follows great [Alexander Overvoorde's tutorial](https://vulkan-tutorial.com) for creating resources, but excludes swapchain infrastructure and creates a framebuffer using a shared Direct3D 11 texture.
 
-The example is written naively, step by step (see `VulkanInterop.Initialize`), and basically follows great [Alexander Overvoorde's tutorial](https://vulkan-tutorial.com) for creating resources, but excludes swapchain infrastructure and creates a framebuffer using a shared Direct3D 11 texture. Whether you are using your own or third party abstractions - it should be easy to adapt the code for use.
+Whether you are using your own or third party abstractions - it should be easy to adapt the code for use.
+
+The example is written naively, step by step - see [VulkanInterop.Initialize](source/VulkanInterop.cs#L481).
 
 [Silk.NET](https://github.com/dotnet/Silk.NET) - bindings used for DirectX and Vulkan calls.
 
@@ -14,7 +16,7 @@ https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378
 
 We need to
 
-1. Create DXGI swapchain and get texture.
+1. Create DXGI swapchain and get the texture.
 
 ```csharp
 var swapchainDescription = new SwapChainDesc1
@@ -61,7 +63,7 @@ sharedTextureHandle = (nint)sharedHandle;
 resource.Dispose();
 ```
 
-4. On the Vulkan side - create an image using a shared handle for memory import, then create a view and a framebuffer. See `VulkanInterop.CreateImageViews`.
+4. On the Vulkan side - create an image using a shared handle for memory import, then create a view and a framebuffer. See [VulkanInterop.CreateImageViews](source/VulkanInterop.cs#L271).
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
