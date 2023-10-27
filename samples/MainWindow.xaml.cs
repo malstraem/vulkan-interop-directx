@@ -149,7 +149,6 @@ public sealed partial class MainWindow : Window
         dxgiResource.Dispose();
 
         Console.WriteLine($"Shared D3D11 texture created: 0x{sharedTextureHandle:X16}");
-
 #if WinUI
         #region Create swapchain and get the texture
         var swapchainDescription = new SwapChainDesc1
@@ -196,7 +195,6 @@ public sealed partial class MainWindow : Window
         finalTextureResource = finalTexture.QueryInterface<ID3D11Resource>();
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
     }
-
 #if WinUI
     private void SetSwapchain() => swapchainPanel.As<ISwapChainPanelNative>().SetSwapChain(swapchain);
 
@@ -293,7 +291,6 @@ public sealed partial class MainWindow : Window
         CompositionTarget.Rendering += OnRendering;
     }
 #endif
-
     private void ReleaseResources()
     {
         finalTextureResource.Dispose();
