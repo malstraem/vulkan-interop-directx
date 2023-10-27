@@ -1,0 +1,24 @@
+﻿<Window 
+  x:Class="Interop.WPF.MainWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  mc:Ignorable="d"
+
+  xmlns:interop ="clr-namespace:System.Windows.Interop;assembly=PresentationCore"
+
+  Title="MainWindow"
+
+  Height="450" Width="800"
+
+  Closed="OnWindowClosed">
+
+  <Grid>
+    <Image x:Name="frameImage" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnFrameImageLoaded" >
+      <Image.Source>
+        <interop:D3DImage x:Name="dxImage" />
+      </Image.Source>
+    </Image>
+  </Grid>
+</Window>

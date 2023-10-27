@@ -21,16 +21,24 @@
     <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
     <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+    <DefineConstants>WinUI</DefineConstants>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.4.230822000" />
+    <Content Include="..\assets\**\*" LinkBase="assets" CopyToOutputDirectory="Always" />
+
+    <Compile Include="..\MainWindow.xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.4.231008000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
 
-    <PackageReference Include="Silk.NET.Direct3D11" Version="2.17.1" />
-    <PackageReference Include="Silk.NET.DXGI" Version="2.17.1" />
+    <PackageReference Include="Silk.NET.Direct3D11" Version="2.18.0" />
+    <PackageReference Include="Silk.NET.DXGI" Version="2.18.0" />
 
-    <ProjectReference Include="..\source\Interop.Vulkan.csproj" />
+    <ProjectReference Include="..\..\source\Interop.Vulkan.csproj" />
 
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
