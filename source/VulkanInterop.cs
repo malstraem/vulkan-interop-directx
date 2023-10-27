@@ -270,7 +270,7 @@ public unsafe class VulkanInterop
 
     public void CreateImageViews(nint directTextureHandle)
     {
-        (colorImage, colorView, colorImageMemory) = CreateImageView(Format.B8G8R8A8Unorm, sampleCount);
+        (colorImage, colorView, colorImageMemory) = CreateImageView(Format.R8G8B8A8Unorm, sampleCount);
         (depthImage, depthView, depthImageMemory) = CreateImageView(depthFormat, sampleCount, ImageUsageFlags.DepthStencilAttachmentBit, ImageAspectFlags.DepthBit);
 
         #region Especial create image and view using handle and external memory of DirectX texture
@@ -279,7 +279,7 @@ public unsafe class VulkanInterop
         var imageInfo = new ImageCreateInfo
         (
             imageType: ImageType.Type2D,
-            format: Format.B8G8R8A8Unorm,
+            format: Format.R8G8B8A8Unorm,
             samples: SampleCountFlags.Count1Bit,
             usage: ImageUsageFlags.ColorAttachmentBit,
             mipLevels: 1u,

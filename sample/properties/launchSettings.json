@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Interop.WinUI3": {
-      "commandName": "MsixPackage",
-      "nativeDebugging": false
-    }
-  }
-}
