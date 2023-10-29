@@ -76,7 +76,6 @@ public sealed partial class MainWindow : Window
 
     private TimeSpan lastRenderTime;
 #endif
-
     private unsafe void InitializeDirectX()
     {
         #region Create device and context
@@ -172,31 +171,6 @@ public sealed partial class MainWindow : Window
         finalTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
         #endregion
 #elif WPF
-        /* #region Create backbuffer texture
-         var finalTextureDescription = new Texture2DDesc
-         {
-             Width = width,
-             Height = height,
-             ArraySize = 1u,
-             MipLevels = 1u,
-             Format = Silk.NET.DXGI.Format.FormatR8G8B8A8Unorm,
-             BindFlags = (uint)(BindFlag.RenderTarget | BindFlag.ShaderResource),
-             MiscFlags = (uint)ResourceMiscFlag.Shared,
-             SampleDesc = new SampleDesc(1u, 0u)
-         };
-
-         _ = device.CreateTexture2D(finalTextureDescription, null, ref finalTexture);*/
-
-        /*dxgiResource = finalTexture.QueryInterface<IDXGIResource>();
-        ThrowHResult(dxgiResource.GetSharedHandle(&sharedHandle));
-        dxgiResource.Dispose();*/
-
-        //void* backbufferShared = null;
-
-        /*ThrowHResult(d3d9device.CreateTexture(
-            width, height, 1u, D3D9.UsageRendertarget, Silk.NET.Direct3D9.Format.A8R8G8B8, Pool.Default, 
-            ref backbufferTexture, ref sharedHandle));*/
-
         void* shared = null;
         ComPtr<IDirect3DTexture9> texture = default;
         ThrowHResult(d3d9device.CreateTexture(width, height, 1u,
@@ -266,7 +240,7 @@ public sealed partial class MainWindow : Window
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-        ReleaseResources();
+        ReleaseDirectXResources();
 
         CreateResources(width, height);
 
@@ -275,6 +249,18 @@ public sealed partial class MainWindow : Window
         vulkanInterop.Resize(sharedTextureHandle, width, height);
     }
 #elif WPF
+    private void OnToggleButtonChecked(object sender, RoutedEventArgs e)
+    {
+        stopwatch.Start();
+        rotateButton.Content = "Stop";
+    }
+
+    private void OnToggleButtonUnchecked(object sender, RoutedEventArgs e)
+    {
+        stopwatch.Stop();
+        rotateButton.Content = "Rotate";
+    }
+
     private unsafe void OnRendering(object? sender, EventArgs e)
     {
         RenderingEventArgs args = (RenderingEventArgs)e;
@@ -284,9 +270,6 @@ public sealed partial class MainWindow : Window
             dxImage.Lock();
 
             vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
-
-            //context.CopyResource(finalTextureResource, renderTargetResource);
-            //context.Flush();
 
             dxImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)(void*)surface.Handle, true);
 
@@ -311,8 +294,6 @@ public sealed partial class MainWindow : Window
         frameImage.SizeChanged += OnFrameImageSizeChanged;
 
         CompositionTarget.Rendering += OnRendering;
-
-        stopwatch.Start();
     }
 
     private void OnFrameImageSizeChanged(object sender, SizeChangedEventArgs e)
@@ -323,7 +304,7 @@ public sealed partial class MainWindow : Window
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
 
-        ReleaseResources();
+        ReleaseDirectXResources();
 
         CreateResources(width, height);
 
@@ -332,7 +313,7 @@ public sealed partial class MainWindow : Window
         vulkanInterop.Resize(sharedTextureHandle, width, height);
     }
 #endif
-    private void ReleaseResources()
+    private void ReleaseDirectXResources()
     {
         finalTextureResource.Dispose();
         renderTargetResource.Dispose();
@@ -356,15 +337,15 @@ public sealed partial class MainWindow : Window
     {
         CompositionTarget.Rendering -= OnRendering;
 
-        ReleaseResources();
+        vulkanInterop.Clear();
+
+        ReleaseDirectXResources();
 
         factory.Dispose();
         adapter.Dispose();
         dxgiDevice.Dispose();
         context.Dispose();
         device.Dispose();
-
-        vulkanInterop.Clear();
     }
 
     public MainWindow()
@@ -373,6 +354,8 @@ public sealed partial class MainWindow : Window
 #if WinUI
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(titleBarRectangle);
+#elif WPF
+        DataContext = vulkanInterop;
 #endif
     }
 }
