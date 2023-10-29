@@ -44,16 +44,7 @@ public sealed partial class MainWindow : Window
     private readonly Stopwatch stopwatch = new();
 
     private readonly VulkanInterop vulkanInterop = new();
-#if WPF
-    private readonly D3D9 d3d9 = D3D9.GetApi(null);
 
-    private ComPtr<IDirect3D9Ex> d3d9Context;
-    private ComPtr<IDirect3DDevice9Ex> d3d9device;
-
-    private ComPtr<IDirect3DTexture9> backbufferTexture;
-
-    private TimeSpan lastRenderTime;
-#endif
     private readonly D3D11 d3d11 = D3D11.GetApi(null);
 
     private ComPtr<ID3D11Device> device;
@@ -63,8 +54,6 @@ public sealed partial class MainWindow : Window
     private ComPtr<IDXGIDevice3> dxgiDevice;
     private ComPtr<IDXGIFactory2> factory;
 
-    private ComPtr<IDXGISwapChain1> swapchain;
-
     private ComPtr<ID3D11Texture2D> finalTexture;
     private ComPtr<ID3D11Texture2D> renderTargetTexture;
 
@@ -72,6 +61,21 @@ public sealed partial class MainWindow : Window
     private ComPtr<ID3D11Resource> renderTargetResource;
 
     private nint sharedTextureHandle;
+
+#if WinUI
+    private ComPtr<IDXGISwapChain1> swapchain;
+#elif WPF
+    private readonly D3D9 d3d9 = D3D9.GetApi(null);
+
+    private ComPtr<IDirect3D9Ex> d3d9Context;
+    private ComPtr<IDirect3DDevice9Ex> d3d9device;
+
+    private ComPtr<IDirect3DTexture9> backbufferTexture;
+
+    private ComPtr<IDirect3DSurface9> surface;
+
+    private TimeSpan lastRenderTime;
+#endif
 
     private unsafe void InitializeDirectX()
     {
@@ -97,7 +101,7 @@ public sealed partial class MainWindow : Window
         #region Get DXGI device, adapter and factory
         dxgiDevice = device.QueryInterface<IDXGIDevice3>();
 
-        _ = dxgiDevice.GetAdapter(ref adapter);
+        ThrowHResult(dxgiDevice.GetAdapter(ref adapter));
 
         factory = adapter.GetParent<IDXGIFactory2>();
         #endregion
@@ -109,11 +113,12 @@ public sealed partial class MainWindow : Window
 
         var presentParameters = new Silk.NET.Direct3D9.PresentParameters
         {
-            BackBufferWidth = 1u,
-            BackBufferHeight = 1u,
+            BackBufferWidth = 800,
+            BackBufferHeight = 600,
             BackBufferFormat  = Silk.NET.Direct3D9.Format.A8R8G8B8,
+            Windowed = true,
             SwapEffect = Swapeffect.Discard,
-            Windowed = true
+            PresentationInterval = D3D9.PresentIntervalImmediate
         };
 
         ThrowHResult(d3d9Context.CreateDeviceEx(0u, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
@@ -167,30 +172,48 @@ public sealed partial class MainWindow : Window
         finalTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
         #endregion
 #elif WPF
-        #region Create backbuffer texture
-        var finalTextureDescription = new Texture2DDesc
-        {
-            Width = width,
-            Height = height,
-            ArraySize = 1u,
-            MipLevels = 1u,
-            Format = Silk.NET.DXGI.Format.FormatR8G8B8A8Unorm,
-            BindFlags = (uint)(BindFlag.RenderTarget | BindFlag.ShaderResource),
-            SampleDesc = new SampleDesc(1u, 0u)
-        };
+        /* #region Create backbuffer texture
+         var finalTextureDescription = new Texture2DDesc
+         {
+             Width = width,
+             Height = height,
+             ArraySize = 1u,
+             MipLevels = 1u,
+             Format = Silk.NET.DXGI.Format.FormatR8G8B8A8Unorm,
+             BindFlags = (uint)(BindFlag.RenderTarget | BindFlag.ShaderResource),
+             MiscFlags = (uint)ResourceMiscFlag.Shared,
+             SampleDesc = new SampleDesc(1u, 0u)
+         };
 
-        _ = device.CreateTexture2D(finalTextureDescription, null, ref finalTexture);
-        #endregion
+         _ = device.CreateTexture2D(finalTextureDescription, null, ref finalTexture);*/
+
+        /*dxgiResource = finalTexture.QueryInterface<IDXGIResource>();
+        ThrowHResult(dxgiResource.GetSharedHandle(&sharedHandle));
+        dxgiResource.Dispose();*/
+
+        //void* backbufferShared = null;
+
+        /*ThrowHResult(d3d9device.CreateTexture(
+            width, height, 1u, D3D9.UsageRendertarget, Silk.NET.Direct3D9.Format.A8R8G8B8, Pool.Default, 
+            ref backbufferTexture, ref sharedHandle));*/
+
+        void* shared = null;
+        ComPtr<IDirect3DTexture9> texture = default;
+        ThrowHResult(d3d9device.CreateTexture(width, height, 1u,
+            D3D9.UsageRendertarget, Silk.NET.Direct3D9.Format.X8R8G8B8, Pool.Default, ref texture, ref shared));
+
+        backbufferTexture = texture;
+
+        ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref surface));
+
+        finalTexture = device.OpenSharedResource<ID3D11Texture2D>(shared);
 
         dxgiResource = finalTexture.QueryInterface<IDXGIResource>();
-        ThrowHResult(dxgiResource.GetSharedHandle(&sharedHandle));
-        dxgiResource.Dispose();
 
-        void* backbufferShared = null;
+        void* sharedHandle2;
+        ThrowHResult(dxgiResource.GetSharedHandle(&sharedHandle2));
 
-        ThrowHResult(d3d9device.CreateTexture(
-            width, height, 1u, D3D9.UsageRendertarget, Silk.NET.Direct3D9.Format.A8R8G8B8, Pool.Default, 
-            ref backbufferTexture, ref backbufferShared));
+        sharedTextureHandle = (nint)sharedHandle2;
 #endif
         finalTextureResource = finalTexture.QueryInterface<ID3D11Resource>();
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
@@ -258,17 +281,14 @@ public sealed partial class MainWindow : Window
 
         if (dxImage.IsFrontBufferAvailable && lastRenderTime != args.RenderingTime)
         {
-            ComPtr<IDirect3DSurface9> surface = null;
-
-            ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref surface));
+            dxImage.Lock();
 
             vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
 
-            context.CopyResource(finalTextureResource, renderTargetResource);
-            context.Flush();
+            //context.CopyResource(finalTextureResource, renderTargetResource);
+            //context.Flush();
 
-            dxImage.Lock();
-            dxImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)surface.GetPinnableReference());
+            dxImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)(void*)surface.Handle, true);
 
             dxImage.AddDirtyRect(new Int32Rect(0, 0, dxImage.PixelWidth, dxImage.PixelHeight));
             dxImage.Unlock();
@@ -288,7 +308,28 @@ public sealed partial class MainWindow : Window
 
         vulkanInterop.Initialize(sharedTextureHandle, width, height, File.Open("assets/DamagedHelmet.glb", FileMode.Open));
 
+        frameImage.SizeChanged += OnFrameImageSizeChanged;
+
         CompositionTarget.Rendering += OnRendering;
+
+        stopwatch.Start();
+    }
+
+    private void OnFrameImageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        uint width = (uint)e.NewSize.Width;
+        uint height = (uint)e.NewSize.Height;
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"SwapchainPanel resized: width - {width}, height - {height}");
+
+        ReleaseResources();
+
+        CreateResources(width, height);
+
+        //SetSwapchain();
+
+        vulkanInterop.Resize(sharedTextureHandle, width, height);
     }
 #endif
     private void ReleaseResources()
@@ -298,12 +339,15 @@ public sealed partial class MainWindow : Window
 
         finalTexture.Dispose();
         renderTargetTexture.Dispose();
-
+#if WinUI
         swapchain.Dispose();
+#elif WPF
+        backbufferTexture.Dispose();
+#endif
     }
 
     private void OnWindowClosed(object sender,
-#if WinUI 
+#if WinUI
         WindowEventArgs
 #elif WPF
         EventArgs

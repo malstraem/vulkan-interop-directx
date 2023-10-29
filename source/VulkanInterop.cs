@@ -279,12 +279,12 @@ public unsafe class VulkanInterop
         var imageInfo = new ImageCreateInfo
         (
             imageType: ImageType.Type2D,
-            format: Format.R8G8B8A8Unorm,
-            samples: SampleCountFlags.Count1Bit,
+            format: Format.B8G8R8A8Unorm,
+            samples: SampleCountFlags.None,
             usage: ImageUsageFlags.ColorAttachmentBit,
-            mipLevels: 1u,
-            arrayLayers: 1u,
-            extent: new Extent3D(width: width, height: height, depth: 1u),
+            mipLevels: 0u,
+            arrayLayers: 0u,
+            extent: new Extent3D(width: width, height: height, depth: 0u),
             pNext: &externalMemoryImageInfo
         );
 
