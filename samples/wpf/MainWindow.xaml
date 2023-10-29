@@ -8,17 +8,26 @@
 
   xmlns:interop ="clr-namespace:System.Windows.Interop;assembly=PresentationCore"
 
-  Title="MainWindow"
+  Title="Vulkan and WPF interop"
 
   Height="450" Width="800"
 
   Closed="OnWindowClosed">
 
   <Grid>
-    <Image x:Name="frameImage" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnFrameImageLoaded" >
+    <Image x:Name="frameImage" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnFrameImageLoaded">
       <Image.Source>
         <interop:D3DImage x:Name="dxImage" />
       </Image.Source>
     </Image>
+
+    <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+      <Slider Minimum="1" Maximum="20" 
+              VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
+              Value="{Binding vulkanInterop.RotationSpeed, Mode=OneWayToSource}"/>
+
+      <ToggleButton Margin="50,0,0,0"
+                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </StackPanel>
   </Grid>
 </Window>
