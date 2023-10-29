@@ -8,9 +8,7 @@
 
   xmlns:interop ="clr-namespace:System.Windows.Interop;assembly=PresentationCore"
 
-  Title="Vulkan and WPF interop"
-
-  Height="450" Width="800"
+  Width="1280" Height="720"
 
   Closed="OnWindowClosed">
 
@@ -21,13 +19,19 @@
       </Image.Source>
     </Image>
 
-    <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
-      <Slider Minimum="1" Maximum="20" 
-              VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
-              Value="{Binding vulkanInterop.RotationSpeed, Mode=OneWayToSource}"/>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="2*"/>
+      </Grid.RowDefinitions>
 
-      <ToggleButton Margin="50,0,0,0"
-                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
-    </StackPanel>
+      <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <Slider Minimum="1" Maximum="20" MinWidth="200" VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
+                Value="{Binding RotationSpeed, Mode=TwoWay}"/>
+
+        <ToggleButton x:Name="rotateButton" Margin="0,0,0,0" Content="Rotate"
+                      VerticalAlignment="Center" HorizontalAlignment="Center" Checked="OnToggleButtonChecked" Unchecked="OnToggleButtonUnchecked"/>
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

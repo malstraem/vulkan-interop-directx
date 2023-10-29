@@ -21,8 +21,7 @@
       </Grid.RowDefinitions>
 
       <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <Slider Minimum="1" Maximum="20" 
-                VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
+        <Slider Minimum="1" Maximum="20" VerticalAlignment="Center" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Rotation speed"
                 Value="{x:Bind vulkanInterop.RotationSpeed, Mode=TwoWay}"/>
 
         <ToggleSwitch Margin="50,0,0,0" OffContent="Stopped" OnContent="Rotating"

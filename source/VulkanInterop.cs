@@ -279,7 +279,7 @@ public unsafe class VulkanInterop
         var imageInfo = new ImageCreateInfo
         (
             imageType: ImageType.Type2D,
-            format: Format.B8G8R8A8Unorm,
+            format: Format.R8G8B8A8Unorm,
             samples: SampleCountFlags.None,
             usage: ImageUsageFlags.ColorAttachmentBit,
             mipLevels: 0u,
