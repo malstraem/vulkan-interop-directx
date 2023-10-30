@@ -112,6 +112,7 @@ public unsafe class VulkanInterop
     private ShaderModule vertexShaderModule, fragmentShaderModule;
 
     private Format depthFormat;
+    private Format targetFormat;
     private SampleCountFlags sampleCount = SampleCountFlags.Count8Bit;
 
     private static byte[] ReadBytes(string filename)
@@ -270,7 +271,7 @@ public unsafe class VulkanInterop
 
     public void CreateImageViews(nint directTextureHandle)
     {
-        (colorImage, colorView, colorImageMemory) = CreateImageView(Format.R8G8B8A8Unorm, sampleCount);
+        (colorImage, colorView, colorImageMemory) = CreateImageView(targetFormat, sampleCount);
         (depthImage, depthView, depthImageMemory) = CreateImageView(depthFormat, sampleCount, ImageUsageFlags.DepthStencilAttachmentBit, ImageAspectFlags.DepthBit);
 
         #region Especial create image and view using handle and external memory of DirectX texture
@@ -279,7 +280,7 @@ public unsafe class VulkanInterop
         var imageInfo = new ImageCreateInfo
         (
             imageType: ImageType.Type2D,
-            format: Format.R8G8B8A8Unorm,
+            format: targetFormat,
             samples: SampleCountFlags.None,
             usage: ImageUsageFlags.ColorAttachmentBit,
             mipLevels: 0u,
@@ -299,8 +300,8 @@ public unsafe class VulkanInterop
         var imageViewInfo = new ImageViewCreateInfo
         (
             image: directImage,
-            viewType: (ImageViewType)imageInfo.ImageType,
-            format: imageInfo.Format,
+            viewType: ImageViewType.Type2D,
+            format: targetFormat,
             subresourceRange: new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
@@ -312,7 +313,7 @@ public unsafe class VulkanInterop
         vk.CreateImageView(device, imageViewInfo, null, out directView).Check();
 
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Imported vulkan image is created: 0x{directImage.Handle:X16}\n");
+        Console.WriteLine($"Imported vulkan image: 0x{directImage.Handle:X16}\n");
         #endregion
     }
 
@@ -478,10 +479,12 @@ public unsafe class VulkanInterop
         vk.EndCommandBuffer(commandBuffer).Check();
     }
 
-    public void Initialize(nint directTextureHandle, uint width, uint height, Stream modelStream)
+    public void Initialize(nint directTextureHandle, uint width, uint height, Format targetFormat, Stream modelStream)
     {
         this.width = width;
         this.height = height;
+
+        this.targetFormat = targetFormat;
 
         #region Create instance
         var appInfo = new ApplicationInfo(apiVersion: Vk.Version10);
@@ -490,7 +493,7 @@ public unsafe class VulkanInterop
         vk.CreateInstance(createInfo, null, out instance).Check();
 
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Vulkan instance created: 0x{instance.Handle:X16}");
+        Console.WriteLine($"Vulkan instance: 0x{instance.Handle:X16}");
         #endregion
 
         uint queueIndex = 0u;
@@ -529,7 +532,7 @@ public unsafe class VulkanInterop
             _ => SampleCountFlags.Count1Bit
         };
 
-        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension picked: 0x{physicalDevice.Handle:X16}");
+        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X16}");
         #endregion
 
         #region Create device
@@ -554,7 +557,7 @@ public unsafe class VulkanInterop
 
         vk.CreateDevice(physicalDevice, deviceCreateInfo, null, out device).Check();
 
-        Console.WriteLine($"Vulkan device created: 0x{device.Handle:X16}");
+        Console.WriteLine($"Vulkan device: 0x{device.Handle:X16}");
         #endregion
 
         vk.GetDeviceQueue(device, queueIndex, 0u, out queue);

@@ -9,11 +9,13 @@
   xmlns:interop ="clr-namespace:System.Windows.Interop;assembly=PresentationCore"
 
   Width="1280" Height="720"
+  
+  x:Name="target"
 
   Closed="OnWindowClosed">
 
   <Grid>
-    <Image x:Name="frameImage" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnFrameImageLoaded">
+    <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnLoaded">
       <Image.Source>
         <interop:D3DImage x:Name="dxImage" />
       </Image.Source>

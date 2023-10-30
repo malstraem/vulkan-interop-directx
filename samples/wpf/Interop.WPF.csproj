@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Platforms>x64</Platforms>
-    <OutputType>winexe</OutputType>
+    <OutputType>exe</OutputType>
     <TargetFramework>net7.0-windows</TargetFramework>
 
     <UseWPF>true</UseWPF>
