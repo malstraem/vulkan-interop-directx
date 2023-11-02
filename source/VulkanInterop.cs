@@ -275,7 +275,10 @@ public unsafe class VulkanInterop
         (depthImage, depthView, depthImageMemory) = CreateImageView(depthFormat, sampleCount, ImageUsageFlags.DepthStencilAttachmentBit, ImageAspectFlags.DepthBit);
 
         #region Especial create image and view using handle and external memory of DirectX texture
-        var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo(handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit);
+        var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo
+        (
+            handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit
+        );
 
         var imageInfo = new ImageCreateInfo
         (
@@ -289,7 +292,11 @@ public unsafe class VulkanInterop
             pNext: &externalMemoryImageInfo
         );
 
-        var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR(handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit, handle: directTextureHandle);
+        var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
+        (
+            handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
+            handle: directTextureHandle
+        );
         var memoryInfo = new MemoryAllocateInfo(pNext: &importMemoryInfo);
 
         vk.CreateImage(device, imageInfo, null, out directImage).Check();

@@ -132,7 +132,7 @@ var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
 vk.CreateImage(device, imageInfo, null, out directImage).Check();
 ```
 
-> Note that Vulkan `R8G8B8A8Unorm` texture format map to D3D9 `X8R8G8B8`
+> Note that Vulkan `B8G8R8A8Unorm` texture format map to D3D9 `X8R8G8B8`
 
 5. Once the framebuffer is created, we are ready to render and interop.
 

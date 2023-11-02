@@ -56,7 +56,7 @@ public sealed partial class MainWindow : Window
 
     private ComPtr<ID3D11Texture2D> renderTargetTexture;
 
-    private nint sharedTextureHandle;
+    private nint renderTargetSharedHandle;
 
 #if WinUI
     private ComPtr<IDXGISwapChain1> swapchain;
@@ -71,7 +71,7 @@ public sealed partial class MainWindow : Window
     private ComPtr<IDirect3D9Ex> d3d9context;
     private ComPtr<IDirect3DDevice9Ex> d3d9device;
 
-    private ComPtr<IDirect3DSurface9> surface;
+    private ComPtr<IDirect3DSurface9> d3d9surface;
 
     private ComPtr<IDirect3DTexture9> backbufferTexture;
 
@@ -140,7 +140,13 @@ public sealed partial class MainWindow : Window
             BufferCount = 2u,
         };
 
-        ThrowHResult(dxgiFactory.CreateSwapChainForComposition(dxgiDevice, swapchainDescription, default(ComPtr<IDXGIOutput>), ref swapchain));
+        ThrowHResult(dxgiFactory.CreateSwapChainForComposition
+        (
+            dxgiDevice,
+            swapchainDescription,
+            default(ComPtr<IDXGIOutput>),
+            ref swapchain
+        ));
 
         backbufferTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
 
@@ -166,29 +172,38 @@ public sealed partial class MainWindow : Window
         backbufferResource = backbufferTexture.QueryInterface<ID3D11Resource>();
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
 #elif WPF
-        #region Create D3D9 render target texture and open on the D3D 11 side
+        #region Create D3D9 back buffer texture and open it on the D3D11 side as the render target
         void* d3d9shared = null;
-        ThrowHResult(d3d9device.CreateTexture(width, height, 1u,
-            D3D9.UsageRendertarget, Silk.NET.Direct3D9.Format.X8R8G8B8, Pool.Default, ref backbufferTexture, ref d3d9shared));
+        ThrowHResult(d3d9device.CreateTexture
+        (
+            width,
+            height,
+            1u,
+            D3D9.UsageRendertarget,
+            Silk.NET.Direct3D9.Format.X8R8G8B8,
+            Pool.Default,
+            ref backbufferTexture,
+            ref d3d9shared
+        ));
 
         Console.WriteLine($"Direct3D9 texture: 0x{(nint)backbufferTexture.Handle:X16}");
 
-        ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref surface));
+        ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref d3d9surface));
 
         renderTargetTexture = d3d11device.OpenSharedResource<ID3D11Texture2D>(d3d9shared);
         #endregion
 #endif
-        #region Get shared handle for D3D11 texture
-        void* dxgiShared;
+        #region Get shared handle for D3D11 render target texture
+        void* handle;
 
-        var dxgiResource = renderTargetTexture.QueryInterface<IDXGIResource>();
-        ThrowHResult(dxgiResource.GetSharedHandle(&dxgiShared));
-        dxgiResource.Dispose();
+        var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
+        ThrowHResult(resource.GetSharedHandle(&handle));
+        resource.Dispose();
 
-        sharedTextureHandle = (nint)dxgiShared;
+        renderTargetSharedHandle = (nint)handle;
         #endregion
 
-        Console.WriteLine($"Shared Direct3D11 render target texture: 0x{sharedTextureHandle:X16}");
+        Console.WriteLine($"Shared Direct3D11 render target texture: 0x{renderTargetSharedHandle:X16}");
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -213,7 +228,7 @@ public sealed partial class MainWindow : Window
         modelStream = File.Open("assets/DamagedHelmet.glb", FileMode.Open);
         format = Silk.NET.Vulkan.Format.B8G8R8A8Unorm; //Vulkan B8G8R8A8Unorm map to Direct3D9 X8R8G8B8 (why?)
 #endif
-        vulkanInterop.Initialize(sharedTextureHandle, width, height, format, modelStream);
+        vulkanInterop.Initialize(renderTargetSharedHandle, width, height, format, modelStream);
 
         await modelStream.DisposeAsync();
 
@@ -234,7 +249,7 @@ public sealed partial class MainWindow : Window
 
         CreateResources(width, height);
 
-        vulkanInterop.Resize(sharedTextureHandle, width, height);
+        vulkanInterop.Resize(renderTargetSharedHandle, width, height);
     }
 
     private unsafe void OnRendering(object? sender, object e)
@@ -244,18 +259,18 @@ public sealed partial class MainWindow : Window
         d3d11context.CopyResource(backbufferResource, renderTargetResource);
         ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 #elif WPF
-        RenderingEventArgs args = (RenderingEventArgs)e;
+        var args = (RenderingEventArgs)e;
 
-        if (dxImage.IsFrontBufferAvailable && lastRenderTime != args.RenderingTime)
+        if (d3dImage.IsFrontBufferAvailable && lastRenderTime != args.RenderingTime)
         {
-            dxImage.Lock();
+            d3dImage.Lock();
 
             vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
 
-            dxImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)surface.Handle);
+            d3dImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)d3d9surface.Handle);
+            d3dImage.AddDirtyRect(new Int32Rect(0, 0, d3dImage.PixelWidth, d3dImage.PixelHeight));
 
-            dxImage.AddDirtyRect(new Int32Rect(0, 0, dxImage.PixelWidth, dxImage.PixelHeight));
-            dxImage.Unlock();
+            d3dImage.Unlock();
 
             lastRenderTime = args.RenderingTime;
         }
@@ -265,17 +280,17 @@ public sealed partial class MainWindow : Window
     private unsafe void ReleaseResources()
     {
 #if WinUI
-        backbufferResource.Dispose();
         renderTargetResource.Dispose();
+        backbufferResource.Dispose();
 
         swapchain.Dispose();
 #elif WPF
-        surface.Dispose();
+        d3d9surface.Dispose();
 #endif
+        renderTargetTexture.Dispose();
+
         backbufferTexture.Dispose();
         _ = backbufferTexture.Detach();
-
-        renderTargetTexture.Dispose();
     }
 
     private void OnWindowClosed(object sender, object e)
@@ -291,6 +306,13 @@ public sealed partial class MainWindow : Window
         dxgiDevice.Dispose();
         d3d11context.Dispose();
         d3d11device.Dispose();
+        d3d11.Dispose();
+
+#if WPF
+        d3d9context.Dispose();
+        d3d9device.Dispose();
+        d3d9.Dispose();
+#endif
     }
 #if WinUI
     private void OnSwitchToggled(object sender, RoutedEventArgs e)

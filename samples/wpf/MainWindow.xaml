@@ -17,7 +17,7 @@
   <Grid>
     <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnLoaded">
       <Image.Source>
-        <interop:D3DImage x:Name="dxImage" />
+        <interop:D3DImage x:Name="d3dImage" />
       </Image.Source>
     </Image>
 
