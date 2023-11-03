@@ -16,7 +16,7 @@ https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378
 
 We need to
 
-1. Prepare the "back buffer" texture.
+## 1. Prepare the "back buffer" texture.
 
 In case of WinUI - create a DXGI swapchain, get the texture and set the swapchain to the WinUI SwapChainPanel.
 
@@ -64,7 +64,7 @@ ThrowHResult(d3d9device.CreateTexture
 ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref surface));
 ```
 
-2. Create a "render target" D3D11 texture in shared mode.
+## 2. Create a "render target" D3D11 texture in shared mode.
 
 In case of WinUI - this is regular D3D11 texture.
 
@@ -94,7 +94,7 @@ In case of WPF, we get the texture using shared handle of the D3D9 texture creat
 renderTargetTexture = d3d11device.OpenSharedResource<ID3D11Texture2D>(d3d9shared);
 ```
 
-3. Query the "render target" D3D11 texture to the DXGI resource and get a shared "render target" handle.
+## 3. Query the "render target" D3D11 texture to the DXGI resource and get a shared "render target" handle.
 
 ```csharp
 void* handle;
@@ -106,7 +106,7 @@ resource.Dispose();
 renderTargetSharedHandle = (nint)handle;
 ```
 
-4. On the Vulkan side - create an image using a shared "render target" handle for memory import, then create a view and a framebuffer.
+## 4. On the Vulkan side - create an image using a shared "render target" handle for memory import, then create a view and a framebuffer.
    See [VulkanInterop.CreateImageViews](source/VulkanInterop.cs#L271).
 
 ```csharp
@@ -134,7 +134,7 @@ vk.CreateImage(device, imageInfo, null, out directImage).Check();
 
 > Note that Vulkan `B8G8R8A8Unorm` texture format map to D3D9 `X8R8G8B8`
 
-5. Once the framebuffer is created, we are ready to render and interop.
+## 5. Once the framebuffer is created, we are ready to render and interop.
 
 With WinUI we need to call Direct3D 11 to copy data from the "render target" to the "back buffer" and present it.
 
@@ -144,7 +144,7 @@ d3d11context.CopyResource(backbufferResource, renderTargetResource);
 ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 ```
 
-With WPF we only need to set the D3D9 surface to the D3DImage, because it already contains the rendered image.
+With WPF we only need to set the D3D9 surface to the D3DImage, because "back buffer" already contains the rendered image.
 
 ```
 d3dImage.Lock();
