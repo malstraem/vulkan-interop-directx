@@ -93,8 +93,8 @@ public sealed partial class MainWindow : Window
             ref d3d11context));
 
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"Direct3D11 device: 0x{(nint)d3d11device.Handle:X16}");
-        Console.WriteLine($"Direct3D11 context: 0x{(nint)d3d11context.Handle:X16}");
+        Console.WriteLine($"Direct3D11 device: 0x{(nint)d3d11device.Handle:X8}");
+        Console.WriteLine($"Direct3D11 context: 0x{(nint)d3d11context.Handle:X8}");
         #endregion
 #if WinUI
         #region Get DXGI device, adapter and factory
@@ -119,8 +119,8 @@ public sealed partial class MainWindow : Window
 
         ThrowHResult(d3d9context.CreateDeviceEx(0u, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
 
-        Console.WriteLine($"Direct3D9 device: 0x{(nint)d3d9device.Handle:X16}");
-        Console.WriteLine($"Direct3D9 context: 0x{(nint)d3d9context.Handle:X16}");
+        Console.WriteLine($"Direct3D9 device: 0x{(nint)d3d9device.Handle:X8}");
+        Console.WriteLine($"Direct3D9 context: 0x{(nint)d3d9context.Handle:X8}");
         #endregion
 #endif
     }
@@ -150,7 +150,7 @@ public sealed partial class MainWindow : Window
 
         backbufferTexture = swapchain.GetBuffer<ID3D11Texture2D>(0u);
 
-        target.As<ISwapChainPanelNative>().SetSwapChain(swapchain);
+        renderTarget.As<ISwapChainPanelNative>().SetSwapChain(swapchain);
         #endregion
 
         #region Create render target texture with shared mode
@@ -186,7 +186,7 @@ public sealed partial class MainWindow : Window
             ref d3d9shared
         ));
 
-        Console.WriteLine($"Direct3D9 texture: 0x{(nint)backbufferTexture.Handle:X16}");
+        Console.WriteLine($"Direct3D9 texture: 0x{(nint)backbufferTexture.Handle:X8}");
 
         ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref d3d9surface));
 
@@ -203,15 +203,15 @@ public sealed partial class MainWindow : Window
         renderTargetSharedHandle = (nint)handle;
         #endregion
 
-        Console.WriteLine($"Shared Direct3D11 render target texture: 0x{renderTargetSharedHandle:X16}");
+        Console.WriteLine($"Shared Direct3D11 render target texture: 0x{renderTargetSharedHandle:X8}");
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        uint width = (uint)target.ActualWidth;
-        uint height = (uint)target.ActualHeight;
-
         InitializeDirectX();
+
+        uint width = (uint)renderTarget.ActualWidth;
+        uint height = (uint)renderTarget.ActualHeight;
 
         CreateResources(width, height);
 
@@ -219,20 +219,20 @@ public sealed partial class MainWindow : Window
         Silk.NET.Vulkan.Format format;
 #if WinUI
         var folder = await StorageFolder.GetFolderFromPathAsync(Package.Current.InstalledPath);
-        var assetfolder = await folder.GetFolderAsync("assets");
-        var helmetFile = await assetfolder.GetFileAsync("DamagedHelmet.glb");
+        var assetsfolder = await folder.GetFolderAsync("assets");
+        var helmetFile = await assetsfolder.GetFileAsync("DamagedHelmet.glb");
 
         modelStream = await helmetFile.OpenStreamForReadAsync();
         format = Silk.NET.Vulkan.Format.R8G8B8A8Unorm;
 #elif WPF
         modelStream = File.Open("assets/DamagedHelmet.glb", FileMode.Open);
-        format = Silk.NET.Vulkan.Format.B8G8R8A8Unorm; //Vulkan B8G8R8A8Unorm map to Direct3D9 X8R8G8B8 (why?)
+        format = Silk.NET.Vulkan.Format.B8G8R8A8Unorm;
 #endif
         vulkanInterop.Initialize(renderTargetSharedHandle, width, height, format, modelStream);
 
         await modelStream.DisposeAsync();
 
-        target.SizeChanged += OnSizeChanged;
+        renderTarget.SizeChanged += OnSizeChanged;
 
         CompositionTarget.Rendering += OnRendering;
     }

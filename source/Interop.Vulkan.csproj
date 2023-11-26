@@ -1,24 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Platforms>x64</Platforms>
-    <TargetFramework>net7.0</TargetFramework>
-
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
-    <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
-    <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-
+    <TargetFramework>net8.0</TargetFramework>
     <ShadersOutputPath>shaders</ShadersOutputPath>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0030" />
 
-    <PackageReference Include="Silk.NET.Vulkan" Version="2.18.0" />
-    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.18.0" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.19.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.19.0" />
   </ItemGroup>
 
   <ItemGroup>

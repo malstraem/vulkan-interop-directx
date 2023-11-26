@@ -1,32 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Platforms>x64</Platforms>
     <OutputType>exe</OutputType>
-    <TargetFramework>net7.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
 
     <UseWPF>true</UseWPF>
-
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
-    <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
-    <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 
     <DefineConstants>WPF</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\assets\**\*" LinkBase="assets" CopyToOutputDirectory ="Always"/>
+    <Content Include="..\assets\**\*" LinkBase="assets" CopyToOutputDirectory="Always" />
 
     <Compile Include="..\MainWindow.xaml.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Silk.NET.Direct3D11" Version="2.18.0" />
-    <PackageReference Include="Silk.NET.Direct3D9" Version="2.18.0" />
-    <PackageReference Include="Silk.NET.DXGI" Version="2.18.0" />
+    <PackageReference Include="Silk.NET.Direct3D11" Version="2.19.0" />
+    <PackageReference Include="Silk.NET.Direct3D9" Version="2.19.0" />
+    <PackageReference Include="Silk.NET.DXGI" Version="2.19.0" />
 
     <ProjectReference Include="..\..\source\Interop.Vulkan.csproj" />
   </ItemGroup>

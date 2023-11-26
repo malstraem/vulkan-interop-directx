@@ -16,7 +16,7 @@ https://github.com/malstraem/vulkan-interop-directx/assets/59914970/c08e451d-378
 
 We need to
 
-## 1. Prepare the "back buffer" texture.
+### 1. Prepare the back buffer texture
 
 In case of WinUI - create a DXGI swapchain, get the texture and set the swapchain to the WinUI SwapChainPanel.
 
@@ -64,7 +64,7 @@ ThrowHResult(d3d9device.CreateTexture
 ThrowHResult(backbufferTexture.GetSurfaceLevel(0u, ref surface));
 ```
 
-## 2. Create a "render target" D3D11 texture in shared mode.
+### 2. Create a render target D3D11 texture in shared mode
 
 In case of WinUI - this is regular D3D11 texture.
 
@@ -81,20 +81,20 @@ var renderTargetDescription = new Texture2DDesc
 ThrowHResult(d3d11device.CreateTexture2D(renderTargetDescription, null, ref renderTargetTexture));
 ```
 
-With WinUI we also need to query both "back buffer" and "render target" to D3D11 resources for future copy operations.
+With WinUI we also need to query both back buffer and render target textures to D3D11 resources for future copy operations.
 
 ```
 backbufferResource = backbufferTexture.QueryInterface<ID3D11Resource>();
 renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
 ```
 
-In case of WPF, we get the texture using shared handle of the D3D9 texture created at previos step.
+In case of WPF, we get the texture using shared handle of the D3D9 texture we created earlier.
 
 ```
 renderTargetTexture = d3d11device.OpenSharedResource<ID3D11Texture2D>(d3d9shared);
 ```
 
-## 3. Query the "render target" D3D11 texture to the DXGI resource and get a shared "render target" handle.
+### 3. Query D3D11 render target texture to the DXGI resource and get a shared handle
 
 ```csharp
 void* handle;
@@ -106,8 +106,9 @@ resource.Dispose();
 renderTargetSharedHandle = (nint)handle;
 ```
 
-## 4. On the Vulkan side - create an image using a shared "render target" handle for memory import, then create a view and a framebuffer.
-   See [VulkanInterop.CreateImageViews](source/VulkanInterop.cs#L271).
+### 4. On the Vulkan side - create an image using the previously obtained shared handle
+
+Then create the view and framebuffer - see [VulkanInterop.CreateImageViews](source/VulkanInterop.cs#L271).
 
 ```csharp
 var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo
@@ -132,11 +133,11 @@ var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
 vk.CreateImage(device, imageInfo, null, out directImage).Check();
 ```
 
-> Note that Vulkan `B8G8R8A8Unorm` texture format map to D3D9 `X8R8G8B8`
+> Note that D3D9 `X8R8G8B8` texture format map to Vulkan `B8G8R8A8Unorm`
 
-## 5. Once the framebuffer is created, we are ready to render and interop.
+### 5. Once the framebuffer is created, we are ready to interop
 
-With WinUI we need to call Direct3D 11 to copy data from the "render target" to the "back buffer" and present it.
+With WinUI we need to call Direct3D 11 to copy data from the render target to the back buffer and present it.
 
 ```csharp
 // *rendering*
@@ -144,7 +145,7 @@ d3d11context.CopyResource(backbufferResource, renderTargetResource);
 ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 ```
 
-With WPF we only need to set the D3D9 surface to the D3DImage, because "back buffer" already contains the rendered image.
+With WPF we only need to set the D3D9 surface to the D3DImage, because the back buffer already contains the rendered image.
 
 ```
 d3dImage.Lock();
@@ -154,11 +155,9 @@ d3dImage.AddDirtyRect(new Int32Rect(0, 0, d3dImage.PixelWidth, d3dImage.PixelHei
 d3dImage.Unlock();
 ```
 
-We also need to handle resizing - when this occurs, we should release and recreate size-dependent DirectX and Vulkan resources.
-
 # Prerequisites and build
 
-* .NET 7
+* .NET 8
 * [Windows SDK 10.0.22621](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
 
 The example is `dotnet build` ready.

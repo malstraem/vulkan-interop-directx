@@ -1,9 +1,10 @@
+.vs/
+.idea/
+artifacts/
+
 [Dd]ebug/
 [Rr]elease/
 [Bb]in/
 [Oo]bj/
-
-.vs/
-build/
 
 *.user

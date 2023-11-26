@@ -1,15 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Platforms>x64</Platforms>
     <OutputType>exe</OutputType>
-    <TargetFramework>net7.0-windows10.0.22621.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
 
-    <RuntimeIdentifiers>win10-x64</RuntimeIdentifiers>
-
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseRidGraph>true</UseRidGraph>
 
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
@@ -17,10 +12,6 @@
     <AppDesignerFolder>properties</AppDesignerFolder>
 
     <ApplicationManifest>app.manifest</ApplicationManifest>
-
-    <OutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\bin</OutputPath>
-    <IntermediateOutputPath>$(SolutionDir)build\$(AssemblyName)\$(Platform)\$(Configuration)\obj</IntermediateOutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 
     <DefineConstants>WinUI</DefineConstants>
   </PropertyGroup>
@@ -42,18 +33,4 @@
 
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
-
-  <!--Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
-      Tools extension to be activated for this project even if the Windows App SDK Nuget
-      package has not yet been restored.-->
-  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-    <ProjectCapability Include="Msix" />
-  </ItemGroup>
-
-  <!--Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution 
-      Explorer "Package and Publish" context menu entry to be enabled for this project even if 
-      the Windows App SDK Nuget package has not yet been restored.-->
-  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-  </PropertyGroup>
 </Project>

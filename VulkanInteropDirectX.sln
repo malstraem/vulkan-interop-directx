@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_solution", "_solution", "{0D6A86F1-0B28-4599-A312-DBF42932B130}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
+		directory.build.props = directory.build.props
 		license = license
 		readme.md = readme.md
 	EndProjectSection
@@ -35,6 +36,7 @@ Global
 		{39621384-C00E-4059-A332-77D74B3C4F24}.Debug|x64.ActiveCfg = Debug|x64
 		{39621384-C00E-4059-A332-77D74B3C4F24}.Debug|x64.Build.0 = Debug|x64
 		{39621384-C00E-4059-A332-77D74B3C4F24}.Release|x64.ActiveCfg = Release|x64
+		{39621384-C00E-4059-A332-77D74B3C4F24}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

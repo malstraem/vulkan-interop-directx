@@ -12,7 +12,7 @@
     <Rectangle Name="titleBarRectangle" Height="25" Fill="Transparent"
                HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
 
-    <SwapChainPanel x:Name="target"  Margin="10" Loaded="OnLoaded"/>
+    <SwapChainPanel x:Name="renderTarget" Margin="10" Loaded="OnLoaded"/>
 
     <Grid>
       <Grid.RowDefinitions>

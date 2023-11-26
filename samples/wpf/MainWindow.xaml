@@ -8,14 +8,12 @@
 
   xmlns:interop ="clr-namespace:System.Windows.Interop;assembly=PresentationCore"
 
-  Width="1280" Height="720"
-  
-  x:Name="target"
-
   Closed="OnWindowClosed">
 
   <Grid>
-    <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnLoaded">
+    <StackPanel x:Name="renderTarget" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Loaded="OnLoaded" />
+
+    <Image>
       <Image.Source>
         <interop:D3DImage x:Name="d3dImage" />
       </Image.Source>

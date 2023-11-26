@@ -11,12 +11,12 @@ using Buffer = Silk.NET.Vulkan.Buffer;
 
 namespace Interop.Vulkan;
 
-static class ResultExtensions
+public static class ResultExtensions
 {
     [DebuggerHidden]
     public static void Check(this Result result)
     {
-        if (result is not Result.Success)
+        if (result < 0)
             throw new Exception($"Vulkan calling failed - {result}");
     }
 }
@@ -25,16 +25,10 @@ public unsafe class VulkanInterop
 {
     private const string interopExtensionName = "VK_KHR_external_memory_win32";
 
-    private readonly struct VertexPositionColor
+    private readonly struct VertexPositionColor(Vector3 position, Vector3 color)
     {
-        public VertexPositionColor(Vector3 position, Vector3 color)
-        {
-            Position = position;
-            Color = color;
-        }
-
-        public readonly Vector3 Position;
-        public readonly Vector3 Color;
+        public readonly Vector3 Position = position;
+        public readonly Vector3 Color = color;
 
         public static VertexInputBindingDescription GetBindingDescription() => new()
         {
@@ -138,18 +132,18 @@ public unsafe class VulkanInterop
                 return candidate;
             }
         }
-        throw new Exception("supported format not found");
+        throw new Exception("Supported format not found");
     }
 
     private bool CheckGraphicsQueue(PhysicalDevice physicalDevice, ref uint index)
     {
-        uint queueFamilityCount = 0u;
-        vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilityCount, null);
+        uint queueFamilyCount = 0u;
+        vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilyCount, null);
 
-        var queueFamilies = new QueueFamilyProperties[queueFamilityCount];
+        var queueFamilies = new QueueFamilyProperties[queueFamilyCount];
 
         fixed (QueueFamilyProperties* queueFamiliesPtr = queueFamilies)
-            vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilityCount, queueFamiliesPtr);
+            vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, ref queueFamilyCount, queueFamiliesPtr);
 
         foreach (var queueFamily in queueFamilies)
         {
@@ -163,12 +157,12 @@ public unsafe class VulkanInterop
 
     private bool CheckExternalMemoryExtension(PhysicalDevice physicalDevice) 
     {
-        uint proprtyCount = 0u;
+        uint propertyCount = 0u;
         byte layerName = default;
-        vk.EnumerateDeviceExtensionProperties(physicalDevice, layerName, ref proprtyCount, null).Check();
+        vk.EnumerateDeviceExtensionProperties(physicalDevice, layerName, ref propertyCount, null).Check();
 
-        var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[proprtyCount]);
-        vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &proprtyCount, extensionProperties).Check();
+        var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[propertyCount]);
+        vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &propertyCount, extensionProperties).Check();
 
         foreach (var extensionProperty in extensionProperties)
         {
@@ -189,7 +183,7 @@ public unsafe class VulkanInterop
                 return (uint)i;
         }
 
-        throw new Exception("memory type not found");
+        throw new Exception("Memory type not found");
     }
 
     private unsafe ShaderModule CreateShaderModule(byte[] code)
@@ -204,13 +198,11 @@ public unsafe class VulkanInterop
         }
     }
 
-    private void CreateBuffer(ulong size, BufferUsageFlags bufferUsage, MemoryPropertyFlags memoryProperties,
-        out Buffer buffer, out DeviceMemory deviceMemory)
+    private void CreateBuffer(ulong size, BufferUsageFlags bufferUsage, MemoryPropertyFlags memoryProperties, out Buffer buffer, out DeviceMemory deviceMemory)
     {
         var bufferCreateInfo = new BufferCreateInfo(sharingMode: SharingMode.Exclusive, usage: bufferUsage, size: size);
 
         vk.CreateBuffer(device, bufferCreateInfo, null, out buffer).Check();
-
         vk.GetBufferMemoryRequirements(device, buffer, out var memoryRequirements);
 
         var memoryAllocateInfo = new MemoryAllocateInfo
@@ -220,7 +212,6 @@ public unsafe class VulkanInterop
         );
 
         vk.AllocateMemory(device, memoryAllocateInfo, null, out deviceMemory).Check();
-
         vk.BindBufferMemory(device, buffer, deviceMemory, 0ul).Check();
     }
 
@@ -320,7 +311,7 @@ public unsafe class VulkanInterop
         vk.CreateImageView(device, imageViewInfo, null, out directView).Check();
 
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Imported vulkan image: 0x{directImage.Handle:X16}\n");
+        Console.WriteLine($"Imported Vulkan image: 0x{directImage.Handle:X8}");
         #endregion
     }
 
@@ -366,7 +357,6 @@ public unsafe class VulkanInterop
 
             var scissorRect = new Rect2D
             {
-                Offset = default, 
                 Extent = new(width, height) 
             };
 
@@ -500,7 +490,7 @@ public unsafe class VulkanInterop
         vk.CreateInstance(createInfo, null, out instance).Check();
 
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Vulkan instance: 0x{instance.Handle:X16}");
+        Console.WriteLine($"Vulkan instance: 0x{instance.Handle:X8}");
         #endregion
 
         uint queueIndex = 0u;
@@ -523,9 +513,9 @@ public unsafe class VulkanInterop
         }
 
         if (physicalDevice.Handle == nint.Zero)
-            throw new Exception("suitable device not found");
+            throw new Exception("Suitable device not found");
 
-        depthFormat = FindSupportedFormat(new[] { Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint }, ImageTiling.Optimal, FormatFeatureFlags.DepthStencilAttachmentBit);
+        depthFormat = FindSupportedFormat([Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint], ImageTiling.Optimal, FormatFeatureFlags.DepthStencilAttachmentBit);
 
         vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
 
@@ -539,7 +529,7 @@ public unsafe class VulkanInterop
             _ => SampleCountFlags.Count1Bit
         };
 
-        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X16}");
+        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X8}");
         #endregion
 
         #region Create device
@@ -552,7 +542,7 @@ public unsafe class VulkanInterop
             queueCount: 1u
         );
 
-        string[] extensions = { interopExtensionName };
+        string[] extensions = [interopExtensionName];
 
         var deviceCreateInfo = new DeviceCreateInfo
         (
@@ -564,7 +554,7 @@ public unsafe class VulkanInterop
 
         vk.CreateDevice(physicalDevice, deviceCreateInfo, null, out device).Check();
 
-        Console.WriteLine($"Vulkan device: 0x{device.Handle:X16}");
+        Console.WriteLine($"Vulkan device: 0x{device.Handle:X8}");
         #endregion
 
         vk.GetDeviceQueue(device, queueIndex, 0u, out queue);
