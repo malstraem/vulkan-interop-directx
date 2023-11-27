@@ -47,7 +47,7 @@ target.As<ISwapChainPanelNative>().SetSwapChain(swapchain);
 
 In case of WPF - create a D3D9 texture and get the surface that will be used with WPF D3DImage.
 
-```
+```csharp
 void* d3d9shared = null;
 ThrowHResult(d3d9device.CreateTexture
 (
@@ -83,14 +83,14 @@ ThrowHResult(d3d11device.CreateTexture2D(renderTargetDescription, null, ref rend
 
 With WinUI we also need to query both back buffer and render target textures to D3D11 resources for future copy operations.
 
-```
+```csharp
 backbufferResource = backbufferTexture.QueryInterface<ID3D11Resource>();
 renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
 ```
 
 In case of WPF, we get the texture using shared handle of the D3D9 texture we created earlier.
 
-```
+```csharp
 renderTargetTexture = d3d11device.OpenSharedResource<ID3D11Texture2D>(d3d9shared);
 ```
 
@@ -147,7 +147,7 @@ ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 
 With WPF we only need to set the D3D9 surface to the D3DImage, because the back buffer already contains the rendered image.
 
-```
+```csharp
 d3dImage.Lock();
 // *rendering*
 d3dImage.SetBackBuffer(D3DResourceType.IDirect3DSurface9, (nint)d3d9surface.Handle);
