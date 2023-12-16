@@ -1,22 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <ShadersOutputPath>shaders</ShadersOutputPath>
-    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0030" />
 
-    <PackageReference Include="Silk.NET.Vulkan" Version="2.19.0" />
-    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.19.0" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.20.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.20.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <VertexShaders Include="shaders\*.vert" />
-    <FragmentShaders Include="shaders\*.frag" />
+    <VertexShaders Include="shaders/*.vert" />
+    <FragmentShaders Include="shaders/*.frag" />
 
-    <EmbeddedResource Include="shaders\*.spv" />
+    <EmbeddedResource Include="shaders/*.spv" />
   </ItemGroup>
 
   <Target Name="BuildVulkanShaders" AfterTargets="BeforeBuild">
@@ -24,8 +22,8 @@
     <Message Text="Shader output path: $(ShadersOutputPath)" Importance="high" />
     <Message Text="Vertex shaders: @(VertexShaders)" Importance="high" />
     <Message Text="Fragment shaders: @(FragmentShaders)" Importance="high" />
-    <Exec Command="glslc shaders\%(VertexShaders.Filename)%(VertexShaders.Extension) -o $(ShadersOutputPath)\%(VertexShaders.Filename)%(VertexShaders.Extension).spv" />
-    <Exec Command="glslc shaders\%(FragmentShaders.Filename)%(FragmentShaders.Extension) -o $(ShadersOutputPath)\%(FragmentShaders.Filename)%(FragmentShaders.Extension).spv" />
+    <Exec Command="glslc shaders/%(VertexShaders.Filename)%(VertexShaders.Extension) -o $(ShadersOutputPath)/%(VertexShaders.Filename)%(VertexShaders.Extension).spv" />
+    <Exec Command="glslc shaders/%(FragmentShaders.Filename)%(FragmentShaders.Extension) -o $(ShadersOutputPath)/%(FragmentShaders.Filename)%(FragmentShaders.Extension).spv" />
     -->
   </Target>
 </Project>
