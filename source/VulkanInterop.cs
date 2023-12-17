@@ -36,8 +36,8 @@ public unsafe class VulkanInterop
             InputRate = VertexInputRate.Vertex
         };
 
-        public static VertexInputAttributeDescription[] GetAttributeDescriptions() => new[]
-        {
+        public static VertexInputAttributeDescription[] GetAttributeDescriptions() =>
+        [
             new VertexInputAttributeDescription()
             {
                 Format = Format.R32G32B32Sfloat,
@@ -49,7 +49,7 @@ public unsafe class VulkanInterop
                 Offset = (uint)Marshal.OffsetOf<VertexPositionColor>(nameof(Color)),
                 Location = 1u
             }
-        };
+        ];
     }
 
     private struct ModelViewProjection
@@ -273,14 +273,13 @@ public unsafe class VulkanInterop
 
         var imageInfo = new ImageCreateInfo
         (
-            imageType: ImageType.Type2D,
-            format: targetFormat,
-            samples: SampleCountFlags.None,
             usage: ImageUsageFlags.ColorAttachmentBit,
-            mipLevels: 0u,
-            arrayLayers: 0u,
-            extent: new Extent3D(width: width, height: height, depth: 0u),
-            pNext: &externalMemoryImageInfo
+            format: targetFormat,
+            imageType: ImageType.Type2D,
+            mipLevels: 1u,
+            arrayLayers: 1u,
+            pNext: &externalMemoryImageInfo,
+            extent: new Extent3D(width: width, height: height, depth: 0u)
         );
 
         var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
@@ -288,6 +287,7 @@ public unsafe class VulkanInterop
             handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
             handle: directTextureHandle
         );
+
         var memoryInfo = new MemoryAllocateInfo(pNext: &importMemoryInfo);
 
         vk.CreateImage(device, imageInfo, null, out directImage).Check();
@@ -298,8 +298,8 @@ public unsafe class VulkanInterop
         var imageViewInfo = new ImageViewCreateInfo
         (
             image: directImage,
-            viewType: ImageViewType.Type2D,
             format: targetFormat,
+            viewType: ImageViewType.Type2D,
             subresourceRange: new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
