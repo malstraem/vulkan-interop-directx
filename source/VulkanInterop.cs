@@ -245,7 +245,7 @@ public unsafe class VulkanInterop
         var imageViewInfo = new ImageViewCreateInfo
         (
             image: image,
-            viewType: (ImageViewType)imageInfo.ImageType,
+            viewType: ImageViewType.Type2D,
             format: imageFormat,
             subresourceRange: new ImageSubresourceRange
             {
@@ -273,14 +273,19 @@ public unsafe class VulkanInterop
 
         var imageInfo = new ImageCreateInfo
         (
+            pNext: &externalMemoryImageInfo,
             usage: ImageUsageFlags.ColorAttachmentBit,
             format: targetFormat,
             imageType: ImageType.Type2D,
             mipLevels: 1u,
             arrayLayers: 1u,
-            pNext: &externalMemoryImageInfo,
-            extent: new Extent3D(width: width, height: height, depth: 0u)
+            samples: SampleCountFlags.Count1Bit,
+            extent: new Extent3D(width: width, height: height, depth: 1u)
         );
+
+        vk.CreateImage(device, imageInfo, null, out directImage).Check();
+
+        var requirements = vk.GetImageMemoryRequirements(device, directImage);
 
         var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
         (
@@ -288,9 +293,12 @@ public unsafe class VulkanInterop
             handle: directTextureHandle
         );
 
-        var memoryInfo = new MemoryAllocateInfo(pNext: &importMemoryInfo);
-
-        vk.CreateImage(device, imageInfo, null, out directImage).Check();
+        var memoryInfo = new MemoryAllocateInfo
+        (
+            pNext: &importMemoryInfo,
+            allocationSize: requirements.Size,
+            memoryTypeIndex: GetMemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+        );
 
         vk.AllocateMemory(device, memoryInfo, null, out directImageMemory).Check();
         vk.BindImageMemory(device, directImage, directImageMemory, 0ul).Check();
@@ -370,9 +378,10 @@ public unsafe class VulkanInterop
 
             var rasterizationState = new PipelineRasterizationStateCreateInfo
             (
-                polygonMode: PolygonMode.Fill,
                 cullMode: CullModeFlags.BackBit,
-                frontFace: FrontFace.Clockwise
+                frontFace: FrontFace.Clockwise,
+                polygonMode: PolygonMode.Fill,
+                lineWidth: 1
             );
 
             var multisampleState = new PipelineMultisampleStateCreateInfo(rasterizationSamples: sampleCount);
@@ -445,19 +454,20 @@ public unsafe class VulkanInterop
 
         vk.AllocateCommandBuffers(device, commandBufferAllocateInfo, out commandBuffer).Check();
 
-        vk.BeginCommandBuffer(commandBuffer, new CommandBufferBeginInfo()).Check();
+        vk.BeginCommandBuffer(commandBuffer, new CommandBufferBeginInfo(sType: StructureType.CommandBufferBeginInfo)).Check();
 
-        var clearValues = stackalloc ClearValue[2]
+        var clearValues = stackalloc ClearValue[3]
         {
             new(color: new(0f, 0f, 0f, 1f)),
-            new(depthStencil: new(1f, 0u))
+            new(depthStencil: new(1f, 0u)),
+            new(color: new(0f, 0f, 0f, 1f))
         };
 
         var renderPassBeginInfo = new RenderPassBeginInfo
         (
             renderPass: renderPass,
             framebuffer: framebuffer,
-            clearValueCount: 2u,
+            clearValueCount: 3u,
             pClearValues: clearValues,
             renderArea: new(offset: new(0, 0), extent: new(width, height))
         );
@@ -484,7 +494,7 @@ public unsafe class VulkanInterop
         this.targetFormat = targetFormat;
 
         #region Create instance
-        var appInfo = new ApplicationInfo(apiVersion: Vk.Version10);
+        var appInfo = new ApplicationInfo(apiVersion: Vk.Version11);
         var createInfo = new InstanceCreateInfo(pApplicationInfo: &appInfo);
 
         vk.CreateInstance(createInfo, null, out instance).Check();
@@ -559,7 +569,7 @@ public unsafe class VulkanInterop
 
         vk.GetDeviceQueue(device, queueIndex, 0u, out queue);
 
-        vk.CreateFence(device, new FenceCreateInfo(), null, out fence).Check();
+        vk.CreateFence(device, new FenceCreateInfo(sType: StructureType.FenceCreateInfo), null, out fence).Check();
 
         vk.CreateCommandPool(device, new CommandPoolCreateInfo(queueFamilyIndex: queueIndex), null, out commandPool).Check();
 
@@ -574,23 +584,25 @@ public unsafe class VulkanInterop
         #region Create render pass
         var colorAttachmentDescription = new AttachmentDescription
         {
-            Format = Format.B8G8R8A8Unorm,
+            Format = targetFormat,
             Samples = sampleCount,
             LoadOp = AttachmentLoadOp.Clear,
-            StoreOp = AttachmentStoreOp.Store,
+            StoreOp = AttachmentStoreOp.DontCare,
             StencilLoadOp = AttachmentLoadOp.DontCare,
-            FinalLayout = ImageLayout.ColorAttachmentOptimal
+            FinalLayout = ImageLayout.ColorAttachmentOptimal,
+            //InitialLayout = ImageLayout.ColorAttachmentOptimal
         };
 
         var colorAttachmentResolveDescription = new AttachmentDescription
         {
-            Format = Format.B8G8R8A8Unorm,
+            Format = targetFormat,
             Samples = SampleCountFlags.Count1Bit,
-            LoadOp = AttachmentLoadOp.DontCare,
-            StoreOp = AttachmentStoreOp.Store,
+            LoadOp = AttachmentLoadOp.Clear,
+            StoreOp = AttachmentStoreOp.DontCare,
             StencilLoadOp = AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
-            FinalLayout = ImageLayout.PresentSrcKhr
+            FinalLayout = ImageLayout.ColorAttachmentOptimal,
+            //InitialLayout = ImageLayout.ColorAttachmentOptimal
         };
 
         var depthAttachmentDescription = new AttachmentDescription
@@ -601,10 +613,11 @@ public unsafe class VulkanInterop
             StoreOp = AttachmentStoreOp.DontCare,
             StencilLoadOp = AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
-            FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
+            FinalLayout = ImageLayout.DepthStencilAttachmentOptimal,
+            //InitialLayout = ImageLayout.DepthStencilAttachmentOptimal
         };
 
-        var colorAttachmentReference = new AttachmentReference(layout: ImageLayout.ColorAttachmentOptimal);
+        var colorAttachmentReference = new AttachmentReference(0u, ImageLayout.ColorAttachmentOptimal);
         var depthAttachmentReference = new AttachmentReference(1u, ImageLayout.DepthStencilAttachmentOptimal);
         var colorAttachmentResolveReference = new AttachmentReference(2u, ImageLayout.ColorAttachmentOptimal);
 
@@ -665,8 +678,8 @@ public unsafe class VulkanInterop
             }
         }
 
-        indices = modelIndices.ToArray();
-        vertices = modelVertices.ToArray();
+        indices = [.. modelIndices];
+        vertices = [.. modelVertices];
 
         ulong indexBufferSize = (ulong)(indices.Length * sizeof(uint));
         ulong vertexBufferSize = (ulong)(vertices.Length * sizeof(VertexPositionColor));
@@ -693,7 +706,7 @@ public unsafe class VulkanInterop
         #region Create descriptor pool
         var descriptorPoolSize = new DescriptorPoolSize
         {
-            Type = DescriptorType.UniformBufferDynamic,
+            Type = DescriptorType.UniformBuffer,
             DescriptorCount = 1u
         };
 
@@ -779,6 +792,7 @@ public unsafe class VulkanInterop
 
             vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
             vk.QueueWaitIdle(queue).Check();
+            vk.ResetFences(device, 1u, fence).Check();
         }
     }
 
@@ -846,6 +860,8 @@ public unsafe class VulkanInterop
         vk.DestroyDescriptorSetLayout(device, descriptorSetLayout, null);
 
         vk.DestroyCommandPool(device, commandPool, null);
+
+        vk.DestroyPipelineLayout(device, pipelineLayout, null);
 
         vk.DestroyFence(device, fence, null);
         vk.DestroyDevice(device, null);

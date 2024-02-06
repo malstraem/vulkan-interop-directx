@@ -7,7 +7,6 @@ using Silk.NET.DXGI;
 using Interop.Vulkan;
 
 using static Silk.NET.Core.Native.SilkMarshal;
-
 #if WPF
 using System.IO;
 using System.Windows;
@@ -57,7 +56,6 @@ public sealed partial class MainWindow : Window
     private ComPtr<ID3D11Texture2D> renderTargetTexture;
 
     private nint renderTargetSharedHandle;
-
 #if WinUI
     private ComPtr<IDXGISwapChain1> swapchain;
 
@@ -101,6 +99,11 @@ public sealed partial class MainWindow : Window
         dxgiDevice = d3d11device.QueryInterface<IDXGIDevice3>();
 
         ThrowHResult(dxgiDevice.GetAdapter(ref dxgiAdapter));
+
+        AdapterDesc desc = default;
+        dxgiAdapter.GetDesc(ref desc);
+
+        string name = PtrToString((nint)desc.Description);
 
         dxgiFactory = dxgiAdapter.GetParent<IDXGIFactory2>();
         #endregion
@@ -219,8 +222,8 @@ public sealed partial class MainWindow : Window
         Silk.NET.Vulkan.Format format;
 #if WinUI
         var folder = await StorageFolder.GetFolderFromPathAsync(Package.Current.InstalledPath);
-        var assetsfolder = await folder.GetFolderAsync("assets");
-        var helmetFile = await assetsfolder.GetFileAsync("DamagedHelmet.glb");
+        var assetsFolder = await folder.GetFolderAsync("assets");
+        var helmetFile = await assetsFolder.GetFileAsync("DamagedHelmet.glb");
 
         modelStream = await helmetFile.OpenStreamForReadAsync();
         format = Silk.NET.Vulkan.Format.R8G8B8A8Unorm;
@@ -307,7 +310,6 @@ public sealed partial class MainWindow : Window
         d3d11context.Dispose();
         d3d11device.Dispose();
         d3d11.Dispose();
-
 #if WPF
         d3d9context.Dispose();
         d3d9device.Dispose();
