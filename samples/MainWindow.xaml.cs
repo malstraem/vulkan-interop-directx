@@ -103,7 +103,8 @@ public sealed partial class MainWindow : Window
         AdapterDesc desc = default;
         dxgiAdapter.GetDesc(ref desc);
 
-        string name = PtrToString((nint)desc.Description);
+        string description = PtrToString((nint)desc.Description)!;
+        Console.WriteLine($"DXGI adapter description: '{description}'");
 
         dxgiFactory = dxgiAdapter.GetParent<IDXGIFactory2>();
         #endregion
@@ -163,7 +164,7 @@ public sealed partial class MainWindow : Window
             Height = height,
             Format = Format.FormatR8G8B8A8Unorm,
             BindFlags = (uint)BindFlag.RenderTarget,
-            MiscFlags = (uint)ResourceMiscFlag.Shared,
+            MiscFlags = (uint)(ResourceMiscFlag.Shared | ResourceMiscFlag.SharedNthandle),
             SampleDesc = new SampleDesc(1u, 0u),
             ArraySize = 1u,
             MipLevels = 1u
@@ -199,8 +200,14 @@ public sealed partial class MainWindow : Window
         #region Get shared handle for D3D11 render target texture
         void* handle;
 
-        var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
-        ThrowHResult(resource.GetSharedHandle(&handle));
+        // TODO check Vulkan side - that path should be used with VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT
+        // var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
+        // ThrowHResult(resource.GetSharedHandle(&handle));
+
+        // WPF path now broken IDXGIResource1 cause D3D11 texture opened from D3D11 is not capable with conditions
+        var resource = renderTargetTexture.QueryInterface<IDXGIResource1>();
+        ThrowHResult(resource.CreateSharedHandle((SecurityAttributes*)null, DXGI.SharedResourceRead | DXGI.SharedResourceWrite, (char*)null, &handle));
+
         resource.Dispose();
 
         renderTargetSharedHandle = (nint)handle;

@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
+using Silk.NET.Vulkan.Extensions.KHR;
 
 using Buffer = Silk.NET.Vulkan.Buffer;
 
@@ -266,9 +268,32 @@ public unsafe class VulkanInterop
         (depthImage, depthView, depthImageMemory) = CreateImageView(depthFormat, sampleCount, ImageUsageFlags.DepthStencilAttachmentBit, ImageAspectFlags.DepthBit);
 
         #region Especial create image and view using handle and external memory of DirectX texture
+        var externalFormatInfo = new PhysicalDeviceExternalImageFormatInfo(handleType: ExternalMemoryHandleTypeFlags.D3D11TextureBit);
+
+        var formatInfo = new PhysicalDeviceImageFormatInfo2
+        (
+            pNext: &externalFormatInfo,
+            format: Format.R8G8B8A8Unorm,
+            type: ImageType.Type2D,
+            tiling: ImageTiling.Optimal,
+            usage: ImageUsageFlags.ColorAttachmentBit
+        );
+
+        var externalFormatProperties = new ExternalImageFormatProperties(StructureType.ExternalImageFormatProperties);
+
+        var formatProperties = new ImageFormatProperties2(pNext: &externalFormatProperties);
+
+        // Check only VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT, alternative path with VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT is needed
+        vk.GetPhysicalDeviceImageFormatProperties2(physicalDevice, in formatInfo, &formatProperties).Check();
+
+        if (externalFormatProperties.ExternalMemoryProperties.ExternalMemoryFeatures.HasFlag(ExternalMemoryFeatureFlags.DedicatedOnlyBit))
+        {
+            // process dedicated allocation? Looks like Nvidia need it but works fine without
+        }
+
         var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo
         (
-            handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit
+            handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureBit
         );
 
         var imageInfo = new ImageCreateInfo
@@ -289,7 +314,7 @@ public unsafe class VulkanInterop
 
         var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
         (
-            handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
+            handleType: ExternalMemoryHandleTypeFlags.D3D11TextureBit,
             handle: directTextureHandle
         );
 
@@ -527,9 +552,16 @@ public unsafe class VulkanInterop
 
         depthFormat = FindSupportedFormat([Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint], ImageTiling.Optimal, FormatFeatureFlags.DepthStencilAttachmentBit);
 
-        vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
+        var idProperties = new PhysicalDeviceIDProperties(sType: StructureType.PhysicalDeviceIDProperties);
+        var properties2 = new PhysicalDeviceProperties2(pNext: &idProperties);
 
-        var sampleCounts = physicalDeviceProperties.Limits.FramebufferDepthSampleCounts & physicalDeviceProperties.Limits.FramebufferColorSampleCounts;
+        vk.GetPhysicalDeviceProperties2(physicalDevice, &properties2);
+
+        var properties = properties2.Properties;
+
+        // check LUID for Vulkan and d3d devices?
+
+        var sampleCounts = properties.Limits.FramebufferDepthSampleCounts & properties.Limits.FramebufferColorSampleCounts;
 
         sampleCount = sampleCounts switch
         {
@@ -539,7 +571,7 @@ public unsafe class VulkanInterop
             _ => SampleCountFlags.Count1Bit
         };
 
-        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X8}");
+        Console.WriteLine($"{Encoding.UTF8.GetString(properties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X8}");
         #endregion
 
         #region Create device
@@ -788,11 +820,30 @@ public unsafe class VulkanInterop
     {
         fixed (CommandBuffer* commandBufferPtr = &commandBuffer)
         {
-            var submitInfo = new SubmitInfo(pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
+            fixed (DeviceMemory* directMemoryPtr = &directImageMemory)
+            {
+                // TODO check that keyed mutex is required if the D3D11 texture was created with the appropriate flag
+                /*ulong acquireKey = 1;
+                ulong releaseKey = 2;
+                uint timeout = 9999;
 
-            vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
-            vk.QueueWaitIdle(queue).Check();
-            vk.ResetFences(device, 1u, fence).Check();
+                var keyedMutexInfo = new Win32KeyedMutexAcquireReleaseInfoKHR
+                (
+                    acquireCount: 1,
+                    pAcquireSyncs: directMemoryPtr,
+                    releaseCount: 1,
+                    pReleaseSyncs: directMemoryPtr,
+                    pAcquireKeys: &acquireKey,
+                    pReleaseKeys: &releaseKey,
+                    pAcquireTimeouts: &timeout
+                );*/
+
+                var submitInfo = new SubmitInfo(/*pNext: &keyedMutexInfo, */pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
+
+                vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
+                vk.QueueWaitIdle(queue).Check();
+                vk.ResetFences(device, 1u, fence).Check();
+            }
         }
     }
 
