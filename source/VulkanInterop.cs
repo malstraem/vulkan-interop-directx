@@ -173,7 +173,7 @@ public unsafe class VulkanInterop
         return false;
     }
 
-    private bool CheckExternalImageHandleType(PhysicalDevice physicalDevice)
+    private bool CheckExternalImageHandleType(PhysicalDevice physicalDevice, Format targetFormat)
     {
         var externalFormatInfo = new PhysicalDeviceExternalImageFormatInfo
         (
@@ -183,7 +183,7 @@ public unsafe class VulkanInterop
         var formatInfo = new PhysicalDeviceImageFormatInfo2
         (
             pNext: &externalFormatInfo,
-            format: Format.R8G8B8A8Unorm,
+            format: targetFormat,
             type: ImageType.Type2D,
             tiling: ImageTiling.Optimal,
             usage: ImageUsageFlags.ColorAttachmentBit
@@ -552,7 +552,7 @@ public unsafe class VulkanInterop
 
             if (CheckGraphicsQueue(physicalDevice, ref queueIndex)
                 && CheckExternalMemoryExtension(physicalDevice)
-                && CheckExternalImageHandleType(physicalDevice))
+                && CheckExternalImageHandleType(physicalDevice, targetFormat))
             {
                 this.physicalDevice = physicalDevice;
                 break;
