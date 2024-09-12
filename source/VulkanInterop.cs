@@ -173,6 +173,41 @@ public unsafe class VulkanInterop
         return false;
     }
 
+    private bool CheckExternalImageHandleType(PhysicalDevice physicalDevice)
+    {
+        var externalFormatInfo = new PhysicalDeviceExternalImageFormatInfo
+        (
+            handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit
+        );
+
+        var formatInfo = new PhysicalDeviceImageFormatInfo2
+        (
+            pNext: &externalFormatInfo,
+            format: Format.R8G8B8A8Unorm,
+            type: ImageType.Type2D,
+            tiling: ImageTiling.Optimal,
+            usage: ImageUsageFlags.ColorAttachmentBit
+        );
+
+        var externalFormatProperties = new ExternalImageFormatProperties(StructureType.ExternalImageFormatProperties);
+        var formatProperties = new ImageFormatProperties2(pNext: &externalFormatProperties);
+
+        var result = vk.GetPhysicalDeviceImageFormatProperties2(physicalDevice, in formatInfo, &formatProperties);
+
+        if (result == Result.ErrorFormatNotSupported)
+        {
+            // VK_ERROR_FORMAT_NOT_SUPPORTED can be returned when the handle type is not supported by the device
+            return false;
+        }
+
+        if (result != Result.Success)
+        {
+            throw new Exception($"External handle type check failed - {result}");
+        }
+
+        return externalFormatProperties.ExternalMemoryProperties.ExternalMemoryFeatures.HasFlag(ExternalMemoryFeatureFlags.ImportableBit);
+    }
+
     private uint GetMemoryTypeIndex(uint typeBits, MemoryPropertyFlags memoryPropertyFlags)
     {
         vk.GetPhysicalDeviceMemoryProperties(physicalDevice, out var memoryProperties);
@@ -515,7 +550,9 @@ public unsafe class VulkanInterop
             var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[propertyCount]);
             vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &propertyCount, extensionProperties).Check();
 
-            if (CheckGraphicsQueue(physicalDevice, ref queueIndex) && CheckExternalMemoryExtension(physicalDevice))
+            if (CheckGraphicsQueue(physicalDevice, ref queueIndex)
+                && CheckExternalMemoryExtension(physicalDevice)
+                && CheckExternalImageHandleType(physicalDevice))
             {
                 this.physicalDevice = physicalDevice;
                 break;
