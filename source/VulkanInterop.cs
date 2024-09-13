@@ -793,11 +793,11 @@ public unsafe class VulkanInterop
         vk.UnmapMemory(device, uniformMemory);
     }
 
-    private void SubmitWork()
+    private void SubmitWork(void* submitInfoPNext = null)
     {
         fixed (CommandBuffer* commandBufferPtr = &commandBuffer)
         {
-            var submitInfo = new SubmitInfo(pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
+            var submitInfo = new SubmitInfo(pNext: submitInfoPNext, pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
 
             vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
             vk.QueueWaitIdle(queue).Check();
@@ -807,27 +807,19 @@ public unsafe class VulkanInterop
 
     private void SubmitWork(KeyedMutexSyncInfo keyedMutexSyncInfo)
     {
-        fixed (CommandBuffer* commandBufferPtr = &commandBuffer)
+        fixed (DeviceMemory* directMemoryPtr = &directImageMemory)
         {
-            fixed (DeviceMemory* directMemoryPtr = &directImageMemory)
-            {
-                var keyedMutexInfo = new Win32KeyedMutexAcquireReleaseInfoKHR
-                (
-                    acquireCount: 1,
-                    pAcquireSyncs: directMemoryPtr,
-                    pAcquireKeys: &keyedMutexSyncInfo.AcquireKey,
-                    pAcquireTimeouts: &keyedMutexSyncInfo.Timeout,
-                    releaseCount: 1,
-                    pReleaseSyncs: directMemoryPtr,
-                    pReleaseKeys: &keyedMutexSyncInfo.ReleaseKey
-                );
-
-                var submitInfo = new SubmitInfo(pNext: &keyedMutexInfo, pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
-
-                vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
-                vk.QueueWaitIdle(queue).Check();
-                vk.ResetFences(device, 1u, fence).Check();
-            }
+            var keyedMutexInfo = new Win32KeyedMutexAcquireReleaseInfoKHR
+            (
+                acquireCount: 1,
+                pAcquireSyncs: directMemoryPtr,
+                pAcquireKeys: &keyedMutexSyncInfo.AcquireKey,
+                pAcquireTimeouts: &keyedMutexSyncInfo.Timeout,
+                releaseCount: 1,
+                pReleaseSyncs: directMemoryPtr,
+                pReleaseKeys: &keyedMutexSyncInfo.ReleaseKey
+            );
+            SubmitWork(&keyedMutexInfo);
         }
     }
 
