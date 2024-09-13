@@ -194,6 +194,30 @@ public unsafe class VulkanInterop
         throw new Exception("Memory type not found");
     }
 
+    private ExternalMemoryFeatureFlags GetImageFormatExternalMemoryFeatures(ImageCreateInfo imageInfo, ExternalMemoryHandleTypeFlags handleType)
+    {
+        var externalFormatInfo = new PhysicalDeviceExternalImageFormatInfo
+        (
+            handleType: handleType
+        );
+
+        var formatInfo = new PhysicalDeviceImageFormatInfo2
+        (
+            pNext: &externalFormatInfo,
+            format: imageInfo.Format,
+            usage: imageInfo.Usage,
+            type: imageInfo.ImageType,
+            tiling: imageInfo.Tiling
+        );
+
+        var externalFormatProperties = new ExternalImageFormatProperties(StructureType.ExternalImageFormatProperties);
+        var formatProperties = new ImageFormatProperties2(pNext: &externalFormatProperties);
+
+        vk.GetPhysicalDeviceImageFormatProperties2(physicalDevice, in formatInfo, &formatProperties).Check();
+
+        return externalFormatProperties.ExternalMemoryProperties.ExternalMemoryFeatures;
+    }
+
     private unsafe ShaderModule CreateShaderModule(byte[] code)
     {
         fixed (byte* codePtr = code)
@@ -307,6 +331,13 @@ public unsafe class VulkanInterop
             allocationSize: requirements.Size,
             memoryTypeIndex: GetMemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
         );
+
+        var dedicatedAllocateInfo = new MemoryDedicatedAllocateInfo(image: directImage);
+        var externalMemoryFeatures = GetImageFormatExternalMemoryFeatures(imageInfo, targetHandleType);
+        if (externalMemoryFeatures.HasFlag(ExternalMemoryFeatureFlags.DedicatedOnlyBit))
+        {
+            importMemoryInfo.PNext = &dedicatedAllocateInfo;
+        }
 
         vk.AllocateMemory(device, memoryInfo, null, out directImageMemory).Check();
         vk.BindImageMemory(device, directImage, directImageMemory, 0ul).Check();
