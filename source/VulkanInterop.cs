@@ -107,6 +107,7 @@ public unsafe class VulkanInterop
 
     private Format depthFormat;
     private Format targetFormat;
+    private ExternalMemoryHandleTypeFlags targetHandleType;
     private SampleCountFlags sampleCount = SampleCountFlags.Count8Bit;
 
     private static byte[] ReadBytes(string filename)
@@ -268,7 +269,7 @@ public unsafe class VulkanInterop
         #region Especial create image and view using handle and external memory of DirectX texture
         var externalMemoryImageInfo = new ExternalMemoryImageCreateInfo
         (
-            handleTypes: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit
+            handleTypes: targetHandleType
         );
 
         var imageInfo = new ImageCreateInfo
@@ -289,7 +290,7 @@ public unsafe class VulkanInterop
 
         var importMemoryInfo = new ImportMemoryWin32HandleInfoKHR
         (
-            handleType: ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit,
+            handleType: targetHandleType,
             handle: directTextureHandle
         );
 
@@ -486,12 +487,13 @@ public unsafe class VulkanInterop
         vk.EndCommandBuffer(commandBuffer).Check();
     }
 
-    public void Initialize(nint directTextureHandle, uint width, uint height, Format targetFormat, Stream modelStream)
+    public void Initialize(nint directTextureHandle, uint width, uint height, Format targetFormat, ExternalMemoryHandleTypeFlags targetHandleType, Stream modelStream)
     {
         this.width = width;
         this.height = height;
 
         this.targetFormat = targetFormat;
+        this.targetHandleType = targetHandleType;
 
         #region Create instance
         var appInfo = new ApplicationInfo(apiVersion: Vk.Version11);
