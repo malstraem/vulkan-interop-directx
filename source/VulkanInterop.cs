@@ -21,6 +21,13 @@ public static class ResultExtensions
     }
 }
 
+public struct KeyedMutexSyncInfo
+{
+    public ulong AcquireKey;
+    public ulong ReleaseKey;
+    public uint Timeout; // In milliseconds
+}
+
 public unsafe class VulkanInterop
 {
     private const string interopExtensionName = "VK_KHR_external_memory_win32";
@@ -798,10 +805,42 @@ public unsafe class VulkanInterop
         }
     }
 
+    private void SubmitWork(KeyedMutexSyncInfo keyedMutexSyncInfo)
+    {
+        fixed (CommandBuffer* commandBufferPtr = &commandBuffer)
+        {
+            fixed (DeviceMemory* directMemoryPtr = &directImageMemory)
+            {
+                var keyedMutexInfo = new Win32KeyedMutexAcquireReleaseInfoKHR
+                (
+                    acquireCount: 1,
+                    pAcquireSyncs: directMemoryPtr,
+                    pAcquireKeys: &keyedMutexSyncInfo.AcquireKey,
+                    pAcquireTimeouts: &keyedMutexSyncInfo.Timeout,
+                    releaseCount: 1,
+                    pReleaseSyncs: directMemoryPtr,
+                    pReleaseKeys: &keyedMutexSyncInfo.ReleaseKey
+                );
+
+                var submitInfo = new SubmitInfo(pNext: &keyedMutexInfo, pCommandBuffers: commandBufferPtr, commandBufferCount: 1u);
+
+                vk.QueueSubmit(queue, 1u, in submitInfo, fence).Check();
+                vk.QueueWaitIdle(queue).Check();
+                vk.ResetFences(device, 1u, fence).Check();
+            }
+        }
+    }
+
     public void Draw(float time)
     {
         UpdateModelViewProjection(time);
         SubmitWork();
+    }
+
+    public void Draw(float time, KeyedMutexSyncInfo keyedMutexSyncInfo)
+    {
+        UpdateModelViewProjection(time);
+        SubmitWork(keyedMutexSyncInfo);
     }
 
     public void ReleaseSizeDependentResources()

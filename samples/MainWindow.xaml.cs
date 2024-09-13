@@ -63,6 +63,10 @@ public sealed partial class MainWindow : Window
 
     private ComPtr<ID3D11Resource> backbufferResource;
     private ComPtr<ID3D11Resource> renderTargetResource;
+
+    private ComPtr<IDXGIKeyedMutex> renderTargetKeyedMutex;
+    private KeyedMutexSyncInfo vulkanSyncInfo;
+    private KeyedMutexSyncInfo copySyncInfo;
 #elif WPF
     private readonly D3D9 d3d9 = D3D9.GetApi(null);
 
@@ -165,7 +169,7 @@ public sealed partial class MainWindow : Window
             Height = height,
             Format = Format.FormatR8G8B8A8Unorm,
             BindFlags = (uint)BindFlag.RenderTarget,
-            MiscFlags = (uint)(ResourceMiscFlag.Shared | ResourceMiscFlag.SharedNthandle),
+            MiscFlags = (uint)(ResourceMiscFlag.SharedNthandle | ResourceMiscFlag.SharedKeyedmutex),
             SampleDesc = new SampleDesc(1u, 0u),
             ArraySize = 1u,
             MipLevels = 1u
@@ -176,6 +180,22 @@ public sealed partial class MainWindow : Window
 
         backbufferResource = backbufferTexture.QueryInterface<ID3D11Resource>();
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
+
+        #region Get keyed mutex for render target texture and setup syncing
+        renderTargetKeyedMutex = renderTargetTexture.QueryInterface<IDXGIKeyedMutex>();
+        vulkanSyncInfo = new KeyedMutexSyncInfo
+        {
+            AcquireKey = 0, // Vulkan goes first
+            ReleaseKey = 1, // Release key for copy to back buffer to run
+            Timeout = 10000
+        };
+        copySyncInfo = new KeyedMutexSyncInfo
+        {
+            AcquireKey = 1,
+            ReleaseKey = 0, // Release key for Vulkan to run
+            Timeout = 5000
+        };
+        #endregion
 
         #region Create shared handle for render target texture
         var resource = renderTargetTexture.QueryInterface<IDXGIResource1>();
@@ -267,8 +287,12 @@ public sealed partial class MainWindow : Window
     private unsafe void OnRendering(object? sender, object e)
     {
 #if WinUI
-        vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
+        vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f, vulkanSyncInfo);
+
+        ThrowHResult(renderTargetKeyedMutex.AcquireSync(copySyncInfo.AcquireKey, copySyncInfo.Timeout));
         d3d11context.CopyResource(backbufferResource, renderTargetResource);
+        ThrowHResult(renderTargetKeyedMutex.ReleaseSync(copySyncInfo.ReleaseKey));
+
         ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 #elif WPF
         var args = (RenderingEventArgs)e;
@@ -292,6 +316,7 @@ public sealed partial class MainWindow : Window
     private unsafe void ReleaseResources()
     {
 #if WinUI
+        renderTargetKeyedMutex.Dispose();
         renderTargetResource.Dispose();
         backbufferResource.Dispose();
 
