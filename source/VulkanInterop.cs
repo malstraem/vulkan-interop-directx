@@ -30,6 +30,7 @@ public struct KeyedMutexSyncInfo
 
 public unsafe class VulkanInterop
 {
+    private const int VK_LUID_SIZE = 8;
     private const string interopExtensionName = "VK_KHR_external_memory_win32";
 
     private readonly struct VertexPositionColor(Vector3 position, Vector3 color)
@@ -83,6 +84,7 @@ public unsafe class VulkanInterop
 
     private Device device;
     private PhysicalDevice physicalDevice;
+    private PhysicalDeviceProperties physicalDeviceProperties;
 
     private Queue queue;
 
@@ -126,6 +128,28 @@ public unsafe class VulkanInterop
         using var reader = new BinaryReader(stream!);
 
         return reader.ReadBytes((int)stream!.Length);
+    }
+
+    private static Luid RtlConvertUlongToLuid(ulong val)
+    {
+        // Should behave the same as Window's RtlConvertUlongToLuid in ntddk.h
+        return new Luid
+        {
+            Low = (uint)val,
+            High = 0
+        };
+    }
+
+    private Luid VulkanDeviceLuidToLuid(byte* vulkanDeviceLuidPtr)
+    {
+        var vulkanLuidBytes = new byte[VK_LUID_SIZE];
+        for (int i = 0; i < VK_LUID_SIZE; i++)
+        {
+            vulkanLuidBytes[i] = vulkanDeviceLuidPtr[i];
+        }
+
+        ulong vulkanLuidUlong = BitConverter.ToUInt64(vulkanLuidBytes);
+        return RtlConvertUlongToLuid(vulkanLuidUlong);
     }
 
     private Format FindSupportedFormat(Format[] candidates, ImageTiling tiling, FormatFeatureFlags features)
@@ -179,6 +203,28 @@ public unsafe class VulkanInterop
         }
 
         return false;
+    }
+
+    private bool CheckPhysicalDeviceLuid(byte* vulkanDeviceLuidPtr, Luid targetDeviceLuid, ExternalMemoryHandleTypeFlags targetHandleType)
+    {
+        // Some external memory handle types can only be shared within the same underlying physical
+        // device and/or the same driver version. Best we can do with D3D is check the LUID.
+        switch (targetHandleType)
+        {
+            case ExternalMemoryHandleTypeFlags.OpaqueFDBit:
+            case ExternalMemoryHandleTypeFlags.OpaqueWin32Bit:
+            case ExternalMemoryHandleTypeFlags.OpaqueWin32KmtBit:
+            case ExternalMemoryHandleTypeFlags.D3D11TextureBit:
+            case ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit:
+            case ExternalMemoryHandleTypeFlags.D3D12HeapBit:
+            case ExternalMemoryHandleTypeFlags.D3D12ResourceBit:
+                // Same underlying physical device required, check LUID
+                var vulkanLuid = VulkanDeviceLuidToLuid(vulkanDeviceLuidPtr);
+                return vulkanLuid.Equals(targetDeviceLuid);
+            default:
+                // Same underlying physical device not required
+                return true;
+        }
     }
 
     private uint GetMemoryTypeIndex(uint typeBits, MemoryPropertyFlags memoryPropertyFlags)
@@ -525,7 +571,7 @@ public unsafe class VulkanInterop
         vk.EndCommandBuffer(commandBuffer).Check();
     }
 
-    public void Initialize(nint directTextureHandle, uint width, uint height, Format targetFormat, ExternalMemoryHandleTypeFlags targetHandleType, Stream modelStream)
+    public void Initialize(nint directTextureHandle, Luid targetDeviceLuid, uint width, uint height, Format targetFormat, ExternalMemoryHandleTypeFlags targetHandleType, Stream modelStream)
     {
         this.width = width;
         this.height = height;
@@ -555,9 +601,16 @@ public unsafe class VulkanInterop
             var extensionProperties = new Span<ExtensionProperties>(new ExtensionProperties[propertyCount]);
             vk.EnumerateDeviceExtensionProperties(physicalDevice, &layerName, &propertyCount, extensionProperties).Check();
 
-            if (CheckGraphicsQueue(physicalDevice, ref queueIndex) && CheckExternalMemoryExtension(physicalDevice))
+            var idProperties = new PhysicalDeviceIDProperties(sType: StructureType.PhysicalDeviceIDProperties);
+            var properties2 = new PhysicalDeviceProperties2(pNext: &idProperties);
+            vk.GetPhysicalDeviceProperties2(physicalDevice, &properties2);
+
+            if (CheckGraphicsQueue(physicalDevice, ref queueIndex)
+                && CheckExternalMemoryExtension(physicalDevice)
+                && CheckPhysicalDeviceLuid(idProperties.DeviceLuid, targetDeviceLuid, targetHandleType))
             {
                 this.physicalDevice = physicalDevice;
+                this.physicalDeviceProperties = properties2.Properties;
                 break;
             }
         }
@@ -566,8 +619,6 @@ public unsafe class VulkanInterop
             throw new Exception("Suitable device not found");
 
         depthFormat = FindSupportedFormat([Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint], ImageTiling.Optimal, FormatFeatureFlags.DepthStencilAttachmentBit);
-
-        vk.GetPhysicalDeviceProperties(physicalDevice, out var physicalDeviceProperties);
 
         var sampleCounts = physicalDeviceProperties.Limits.FramebufferDepthSampleCounts & physicalDeviceProperties.Limits.FramebufferColorSampleCounts;
 
@@ -579,7 +630,10 @@ public unsafe class VulkanInterop
             _ => SampleCountFlags.Count1Bit
         };
 
-        Console.WriteLine($"{Encoding.UTF8.GetString(physicalDeviceProperties.DeviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X8}");
+        fixed (byte* deviceName = physicalDeviceProperties.DeviceName)
+        {
+            Console.WriteLine($"{Encoding.UTF8.GetString(deviceName, 256).Trim('\0')} having {interopExtensionName} extension: 0x{physicalDevice.Handle:X8}");
+        }
         #endregion
 
         #region Create device

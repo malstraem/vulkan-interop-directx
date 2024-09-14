@@ -49,6 +49,7 @@ public sealed partial class MainWindow : Window
     private ComPtr<ID3D11Device> d3d11device;
     private ComPtr<ID3D11DeviceContext> d3d11context;
 
+    private Luid dxgiAdapterLuid;
     private ComPtr<IDXGIAdapter> dxgiAdapter;
     private ComPtr<IDXGIDevice3> dxgiDevice;
     private ComPtr<IDXGIFactory2> dxgiFactory;
@@ -105,9 +106,10 @@ public sealed partial class MainWindow : Window
         ThrowHResult(dxgiDevice.GetAdapter(ref dxgiAdapter));
 
         AdapterDesc desc = default;
-        dxgiAdapter.GetDesc(ref desc);
+        ThrowHResult(dxgiAdapter.GetDesc(ref desc));
 
         string name = PtrToString((nint)desc.Description);
+        dxgiAdapterLuid = desc.AdapterLuid;
 
         dxgiFactory = dxgiAdapter.GetParent<IDXGIFactory2>();
         #endregion
@@ -124,7 +126,9 @@ public sealed partial class MainWindow : Window
             PresentationInterval = D3D9.PresentIntervalImmediate
         };
 
-        ThrowHResult(d3d9context.CreateDeviceEx(0u, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
+        uint adapter = 0;
+        ThrowHResult(d3d9context.GetAdapterLUID(adapter, ref dxgiAdapterLuid));
+        ThrowHResult(d3d9context.CreateDeviceEx(adapter, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
 
         Console.WriteLine($"Direct3D9 device: 0x{(nint)d3d9device.Handle:X8}");
         Console.WriteLine($"Direct3D9 context: 0x{(nint)d3d9context.Handle:X8}");
@@ -260,7 +264,7 @@ public sealed partial class MainWindow : Window
         format = Silk.NET.Vulkan.Format.B8G8R8A8Unorm;
         handleType = Silk.NET.Vulkan.ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit;
 #endif
-        vulkanInterop.Initialize(renderTargetSharedHandle, width, height, format, handleType, modelStream);
+        vulkanInterop.Initialize(renderTargetSharedHandle, dxgiAdapterLuid, width, height, format, handleType, modelStream);
 
         await modelStream.DisposeAsync();
 
