@@ -49,6 +49,7 @@ public sealed partial class MainWindow : Window
     private ComPtr<ID3D11Device> d3d11device;
     private ComPtr<ID3D11DeviceContext> d3d11context;
 
+    private Luid dxgiAdapterLuid;
     private ComPtr<IDXGIAdapter> dxgiAdapter;
     private ComPtr<IDXGIDevice3> dxgiDevice;
     private ComPtr<IDXGIFactory2> dxgiFactory;
@@ -63,6 +64,10 @@ public sealed partial class MainWindow : Window
 
     private ComPtr<ID3D11Resource> backbufferResource;
     private ComPtr<ID3D11Resource> renderTargetResource;
+
+    private ComPtr<IDXGIKeyedMutex> renderTargetKeyedMutex;
+    private KeyedMutexSyncInfo vulkanSyncInfo;
+    private KeyedMutexSyncInfo copySyncInfo;
 #elif WPF
     private readonly D3D9 d3d9 = D3D9.GetApi(null);
 
@@ -101,9 +106,10 @@ public sealed partial class MainWindow : Window
         ThrowHResult(dxgiDevice.GetAdapter(ref dxgiAdapter));
 
         AdapterDesc desc = default;
-        dxgiAdapter.GetDesc(ref desc);
+        ThrowHResult(dxgiAdapter.GetDesc(ref desc));
 
         string name = PtrToString((nint)desc.Description);
+        dxgiAdapterLuid = desc.AdapterLuid;
 
         dxgiFactory = dxgiAdapter.GetParent<IDXGIFactory2>();
         #endregion
@@ -120,7 +126,9 @@ public sealed partial class MainWindow : Window
             PresentationInterval = D3D9.PresentIntervalImmediate
         };
 
-        ThrowHResult(d3d9context.CreateDeviceEx(0u, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
+        uint adapter = 0;
+        ThrowHResult(d3d9context.GetAdapterLUID(adapter, ref dxgiAdapterLuid));
+        ThrowHResult(d3d9context.CreateDeviceEx(adapter, Devtype.Hal, wih.Handle, D3D9.CreateHardwareVertexprocessing, ref presentParameters, null, ref d3d9device));
 
         Console.WriteLine($"Direct3D9 device: 0x{(nint)d3d9device.Handle:X8}");
         Console.WriteLine($"Direct3D9 context: 0x{(nint)d3d9context.Handle:X8}");
@@ -130,6 +138,8 @@ public sealed partial class MainWindow : Window
 
     private unsafe void CreateResources(uint width, uint height)
     {
+        void* handle;
+
 #if WinUI
         #region Create swapchain and get the texture
         var swapchainDescription = new SwapChainDesc1
@@ -163,7 +173,7 @@ public sealed partial class MainWindow : Window
             Height = height,
             Format = Format.FormatR8G8B8A8Unorm,
             BindFlags = (uint)BindFlag.RenderTarget,
-            MiscFlags = (uint)ResourceMiscFlag.Shared,
+            MiscFlags = (uint)(ResourceMiscFlag.SharedNthandle | ResourceMiscFlag.SharedKeyedmutex),
             SampleDesc = new SampleDesc(1u, 0u),
             ArraySize = 1u,
             MipLevels = 1u
@@ -174,6 +184,28 @@ public sealed partial class MainWindow : Window
 
         backbufferResource = backbufferTexture.QueryInterface<ID3D11Resource>();
         renderTargetResource = renderTargetTexture.QueryInterface<ID3D11Resource>();
+
+        #region Get keyed mutex for render target texture and setup syncing
+        renderTargetKeyedMutex = renderTargetTexture.QueryInterface<IDXGIKeyedMutex>();
+        vulkanSyncInfo = new KeyedMutexSyncInfo
+        {
+            AcquireKey = 0, // Vulkan goes first
+            ReleaseKey = 1, // Release key for copy to back buffer to run
+            Timeout = 10000
+        };
+        copySyncInfo = new KeyedMutexSyncInfo
+        {
+            AcquireKey = 1,
+            ReleaseKey = 0, // Release key for Vulkan to run
+            Timeout = 5000
+        };
+        #endregion
+
+        #region Create shared handle for render target texture
+        var resource = renderTargetTexture.QueryInterface<IDXGIResource1>();
+        ThrowHResult(resource.CreateSharedHandle((SecurityAttributes*)null, DXGI.SharedResourceRead | DXGI.SharedResourceWrite, (char*)null, &handle));
+        resource.Dispose();
+        #endregion
 #elif WPF
         #region Create D3D9 back buffer texture and open it on the D3D11 side as the render target
         void* d3d9shared = null;
@@ -195,17 +227,15 @@ public sealed partial class MainWindow : Window
 
         renderTargetTexture = d3d11device.OpenSharedResource<ID3D11Texture2D>(d3d9shared);
         #endregion
-#endif
-        #region Get shared handle for D3D11 render target texture
-        void* handle;
 
+        #region Get shared handle for D3D11 render target texture
         var resource = renderTargetTexture.QueryInterface<IDXGIResource>();
         ThrowHResult(resource.GetSharedHandle(&handle));
         resource.Dispose();
+        #endregion
+#endif
 
         renderTargetSharedHandle = (nint)handle;
-        #endregion
-
         Console.WriteLine($"Shared Direct3D11 render target texture: 0x{renderTargetSharedHandle:X8}");
     }
 
@@ -220,6 +250,7 @@ public sealed partial class MainWindow : Window
 
         Stream modelStream;
         Silk.NET.Vulkan.Format format;
+        Silk.NET.Vulkan.ExternalMemoryHandleTypeFlags handleType;
 #if WinUI
         var folder = await StorageFolder.GetFolderFromPathAsync(Package.Current.InstalledPath);
         var assetsFolder = await folder.GetFolderAsync("assets");
@@ -227,11 +258,13 @@ public sealed partial class MainWindow : Window
 
         modelStream = await helmetFile.OpenStreamForReadAsync();
         format = Silk.NET.Vulkan.Format.R8G8B8A8Unorm;
+        handleType = Silk.NET.Vulkan.ExternalMemoryHandleTypeFlags.D3D11TextureBit;
 #elif WPF
         modelStream = File.Open("assets/DamagedHelmet.glb", FileMode.Open);
         format = Silk.NET.Vulkan.Format.B8G8R8A8Unorm;
+        handleType = Silk.NET.Vulkan.ExternalMemoryHandleTypeFlags.D3D11TextureKmtBit;
 #endif
-        vulkanInterop.Initialize(renderTargetSharedHandle, width, height, format, modelStream);
+        vulkanInterop.Initialize(renderTargetSharedHandle, dxgiAdapterLuid, width, height, format, handleType, modelStream);
 
         await modelStream.DisposeAsync();
 
@@ -258,8 +291,12 @@ public sealed partial class MainWindow : Window
     private unsafe void OnRendering(object? sender, object e)
     {
 #if WinUI
-        vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f);
+        vulkanInterop.Draw(stopwatch.ElapsedMilliseconds / 1000f, vulkanSyncInfo);
+
+        ThrowHResult(renderTargetKeyedMutex.AcquireSync(copySyncInfo.AcquireKey, copySyncInfo.Timeout));
         d3d11context.CopyResource(backbufferResource, renderTargetResource);
+        ThrowHResult(renderTargetKeyedMutex.ReleaseSync(copySyncInfo.ReleaseKey));
+
         ThrowHResult(swapchain.Present(0u, (uint)SwapChainFlag.None));
 #elif WPF
         var args = (RenderingEventArgs)e;
@@ -283,6 +320,7 @@ public sealed partial class MainWindow : Window
     private unsafe void ReleaseResources()
     {
 #if WinUI
+        renderTargetKeyedMutex.Dispose();
         renderTargetResource.Dispose();
         backbufferResource.Dispose();
 
